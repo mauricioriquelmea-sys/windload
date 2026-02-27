@@ -20,7 +20,8 @@ def render_logo(image_file):
         st.title("🏗️ Proyectos Estructurales EIRL")
 
 render_logo("Logo.png")
-st.subheader("Análisis Integral de Presiones: 5 Zonas (NCh 432-2025)")
+st.subheader(" Determinación de Presiones de Viento según Norma NCh 432-2025")
+st.subheader("Análisis Integral de Presiones de Viento: Cubiertas y Fachadas")
 
 # 2. SIDEBAR CON GUÍA TÉCNICA
 st.sidebar.header("⚙️ Parámetros de Diseño")
@@ -51,18 +52,35 @@ w_in = st.sidebar.number_input("Ancho trib. real (m)", value=1.0)
 w_trib = max(w_in, l_elem / 3)
 area_ef = l_elem * w_trib
 
-# Factor Topográfico Riguroso
+# --- GUÍA DE FACTOR TOPOGRÁFICO (Figuras explicativas) ---
 with st.sidebar.expander("🏔️ Factor Topográfico (Kzt)"):
-    met = st.radio("Método", ["Manual", "Calculado"])
-    if met == "Manual":
-        Kzt = st.number_input("Kzt", value=1.0)
+    # Figuras explicativas añadidas
+    if st.button("Ver Diagramas Topográficos"):
+        if os.path.exists("F7.png"):
+            st.image("F7.png", caption="Figura 3 - Diagramas de Velocidad en Relieves")
+        if os.path.exists("F6.png"):
+            st.image("F6.png", caption="Figura 3 - Ecuaciones y Parámetros Kzt")
+    
+    metodo = st.radio("Método de cálculo", ["Manual", "Calculado (Escarpe/Colina)"])
+    if metodo == "Manual":
+        Kzt_val = st.number_input("Valor Kzt directo", value=1.0, step=0.1)
     else:
-        H_c = st.number_input("H colina (m)", value=27.0)
-        L_h = st.number_input("Lh (m)", value=1743.7)
-        k1_b, g, m = 0.75, 2.5, 1.5 # Ejemplo Escarpe 2D
-        k1 = k1_b * (H_c / L_h); k3 = math.exp(-g * 10 / L_h)
-        Kzt = (1 + k1 * 1.0 * k3)**2
-        st.info(f"Kzt: {Kzt:.3f}")
+        tipo_relieve = st.selectbox("Forma del relieve", ["Escarpe 2D", "Colina 2D", "Colina 3D"])
+        H_c = st.number_input("Altura H (m)", value=27.0)
+        L_h = st.number_input("Distancia Lh (m)", value=1743.7)
+        x_d = st.number_input("Distancia horizontal x (m)", value=0.0)
+        z_a = st.number_input("Altura vertical z (m)", value=10.0)
+        
+        # Constantes según tipo (Figura 3 - Conclusión)
+        if tipo_relieve == "Escarpe 2D": k1_b, gamma, mu = 0.75, 2.5, 1.5
+        elif tipo_relieve == "Colina 2D": k1_b, gamma, mu = 1.05, 1.5, 1.5
+        else: k1_b, gamma, mu = 0.95, 1.5, 4.0
+
+        k1 = k1_b * (H_c / L_h)
+        k2 = (1 - abs(x_d) / (mu * L_h))
+        k3 = math.exp(-gamma * z_a / L_h)
+        Kzt_val = (1 + k1 * k2 * k3)**2
+        st.info(f"Kzt Calculado: {Kzt_val:.3f}")
 
 # 3. MOTOR DE CÁLCULO
 def get_gcp(a, g1, g10):
