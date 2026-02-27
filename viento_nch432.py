@@ -188,6 +188,17 @@ if os.path.exists("F8.png"):
 else:
     st.info("Suba el esquema F8.png para visualizar las zonas.")
 
+
+
+    # --- SECCIÓN: ESQUEMA ---
+st.markdown("---")
+st.subheader("📍 Esquema isommétrico de distribución de presiones de viento")
+if os.path.exists("F12.png"):
+    st.image("F12.png", caption="Figura 12 - Distribución de Presiones en Forma Isométrica")
+else:
+    st.info("Suba el esquema F12.png para visualizar las zonas.")
+
+
 # CONTACTO
 st.markdown("---")
 st.markdown(f'<div style="text-align: right;"><a href="mailto:mriquelme@proyectosestructurales.com">mriquelme@proyectosestructurales.com</a></div>', unsafe_allow_html=True)
