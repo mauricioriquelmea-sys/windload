@@ -38,13 +38,14 @@ area_efectiva = l_elem * w_trib
 if w_input < (l_elem / 3):
     st.sidebar.warning(f"⚠️ Ancho ajustado por norma a {w_trib:.2f}m (mín. 1/3 del largo)")
 
+exp_cat = st.sidebar.selectbox("Exposición", ['B', 'C', 'D'], index=1)
+imp_cat = st.sidebar.selectbox("Categoría Edificio", ['I', 'II', 'III', 'IV'], index=2)
+
 # Factor Topográfico
 with st.sidebar.expander("🏔️ Factor Topográfico (Kzt)"):
     metodo = st.radio("Método", ["Manual", "Calculado"])
     Kzt_val = st.number_input("Valor Kzt", value=1.0) if metodo == "Manual" else 1.0 # (Lógica simplificada para el bloque)
 
-exp_cat = st.sidebar.selectbox("Exposición", ['B', 'C', 'D'], index=1)
-imp_cat = st.sidebar.selectbox("Categoría Edificio", ['I', 'II', 'III', 'IV'], index=2)
 
 # 3. FUNCIONES DE CÁLCULO
 def get_gcp(area, g1, g10):
