@@ -21,7 +21,8 @@ def render_logo(image_file):
         st.title("🏗️ Proyectos Estructurales EIRL")
 
 render_logo("Logo.png")
-st.subheader("Análisis Integral de Presiones: Cubiertas y Fachadas (NCh 432-2025)")
+st.subheader(" Determinación de Presiones de Viento según Norma NCh 432-2025")
+st.subheader("Análisis Integral de Presiones de Viento: Cubiertas y Fachadas (NCh 432-2025)")
 
 # 2. ENTRADA DE DATOS (SIDEBAR)
 st.sidebar.header("⚙️ Parámetros de Diseño")
