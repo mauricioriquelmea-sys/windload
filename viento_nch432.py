@@ -95,15 +95,33 @@ with col1:
     })
     st.table(df)
 
+# --- ACTUALIZACIÓN DE LA SECCIÓN DE RESULTADOS Y GRÁFICO ---
 with col2:
-    areas = np.logspace(0, 1, 20)
-    c_z3 = [get_gcp(a, -2.8, -1.1) if theta <= 7 else get_gcp(a, -2.0, -1.2) for a in areas]
-    c_z5 = [get_gcp(a, -1.4, -1.1) for a in areas]
-    fig, ax = plt.subplots(figsize=(5, 3.2))
-    ax.plot(areas, c_z3, label='Zona 3 (Techo)', color='red', ls='--')
-    ax.plot(areas, c_z5, label='Zona 5 (Muro)', color='orange')
-    ax.scatter([area_efectiva, area_efectiva], [z3, z5], color='black', zorder=5)
-    ax.set_xlabel("Área Tributaria (m²)"); ax.set_ylabel("GCp"); ax.grid(True, which="both", alpha=0.4); ax.legend()
+    # Definición de áreas para la curva (de 1 a 10 m2)
+    areas_grafico = np.logspace(0, 1, 50)
+    
+    # Curvas de interpolación logarítmica para Muros (Zonas 4 y 5)
+    # Basado en Figura 24/40 de la norma NCh 432:2025
+    curva_z4 = [get_gcp(a, -1.1, -0.8) for a in areas_grafico]
+    curva_z5 = [get_gcp(a, -1.4, -1.1) for a in areas_grafico]
+    
+    fig, ax = plt.subplots(figsize=(6, 4))
+    
+    # Dibujar curvas
+    ax.plot(areas_grafico, curva_z4, label='Zona 4 (Estándar)', color='green', lw=2)
+    ax.plot(areas_grafico, curva_z5, label='Zona 5 (Esquina)', color='red', ls='--', lw=2)
+    
+    # Marcar el punto específico del elemento calculado
+    ax.scatter([area_efectiva], [z4], color='black', zorder=5)
+    ax.scatter([area_efectiva], [z5], color='black', zorder=5)
+    
+    # Formato del gráfico
+    ax.set_title("Influencia del Área Tributaria en Fachadas", fontsize=12)
+    ax.set_xlabel("Área Tributaria (m²)", fontsize=10)
+    ax.set_ylabel("Coeficiente GCp", fontsize=10)
+    ax.grid(True, which="both", alpha=0.3)
+    ax.legend(loc='best')
+    
     st.pyplot(fig)
 
 
