@@ -116,7 +116,7 @@ with col1:
         "Presión Diseño (kgf/m²)": [round(qh*(z-gc_pi), 2) for z in [z1, z2, z3, z4, z5]]
     })
     st.table(df)
-    st.info(f"Dimensión 'a' (Esquina): {max(min(0.1*H_edif, 0.1*H_edif), 0.9):.2f} m")
+    st.info(f"Dimensión 'a' (Longitud de Zona de Viento Esquina (Zona 5)): {max(min(0.1*H_edif, 0.1*H_edif), 0.9):.2f} m")
 
 with col2:
     areas = np.logspace(0, 1, 50)
