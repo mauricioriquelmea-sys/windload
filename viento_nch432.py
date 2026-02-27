@@ -146,7 +146,7 @@ z4, z5 = get_gcp(area_ef, -1.1, -0.8), get_gcp(area_ef, -1.4, -1.1)
 # 4. RESULTADOS Y GRÁFICO INTEGRAL
 col1, col2 = st.columns([1, 1.2])
 with col1:
-    st.metric("Presión qh", f"{qh:.2f} kgf/m²")
+    st.metric("Presión de velocidad máxima del viento (qh)", f"{qh:.2f} kgf/m²")
     df = pd.DataFrame({
         "Zona": ["Zona 1 (Techo Centro)", "Zona 2 (Techo Borde)", "Zona 3 (Techo Esquina)", "Zona 4 (Muro Estándar)", "Zona 5 (Muro Esquina)"],
         "GCp": [round(z, 3) for z in [z1, z2, z3, z4, z5]],
