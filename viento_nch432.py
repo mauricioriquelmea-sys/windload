@@ -201,7 +201,7 @@ cat_imp = st.sidebar.selectbox("Categoría de Riesgo / Riesgo", ['I', 'II', 'III
 # Sin embargo, para mantener compatibilidad con el motor de cálculo:
 imp_map = {'I': 0.54, 'II': 1.0, 'III': 1.15, 'IV': 1.22}
 factor_i = imp_map[cat_imp]
-st.sidebar.info(f"**Factor de importancia (I): {factor_i [cat_imp]} **")
+st.sidebar.info(f"**Factor de importancia (I): {factor_i } **")
 
 # Mostramos el Periodo de Retorno asociado como información técnica adicional
 t_retorno = {'I': 25, 'II': 50, 'III': 100, 'IV': 150}
