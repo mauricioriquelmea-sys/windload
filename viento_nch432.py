@@ -93,7 +93,7 @@ exp_params = {'B': [7.0, 366.0], 'C': [9.5, 274.0], 'D': [11.5, 213.0]}
 alpha, zg = exp_params[st.sidebar.selectbox("Exposición", ['B', 'C', 'D'], index=0)]
 
 kz = 2.01 * ((max(H_edif, 4.6) / zg)**(2/alpha))
-# qh = 0.613 * Kz * Kzt * Kd * V^2 * I (Se usa Kd=0.85 estándar)
+# qh = 0.613 * Kz * Kzt * Kd * V^2 * I
 qh = (0.613 * kz * Kzt_val * 0.85 * (V**2) * imp_map[cat_imp]) * 0.10197
 gc_pi = 0.18
 
@@ -119,25 +119,53 @@ with col1:
     st.table(df)
 
 with col2:
-    # (Aquí va el código del gráfico de Matplotlib generado previamente)
+    # --- GENERACIÓN DEL GRÁFICO ---
+    areas = np.logspace(0, 1, 50)
+    fig, ax = plt.subplots(figsize=(7, 5))
+    
+    # Curvas de Techumbre (Z1, Z2, Z3) adaptadas a la inclinación
+    if theta <= 7:
+        ax.plot(areas, [get_gcp(a, -1.0, -0.9) for a in areas], label='Z1 (Techo)', color='cyan', alpha=0.6)
+        ax.plot(areas, [get_gcp(a, -1.8, -1.1) for a in areas], label='Z2 (Techo)', color='blue', alpha=0.6)
+        ax.plot(areas, [get_gcp(a, -2.8, -1.1) for a in areas], label='Z3 (Techo Esquina)', color='navy', ls='--')
+    else:
+        ax.plot(areas, [get_gcp(a, -0.9, -0.8) for a in areas], label='Z1 (Techo)', color='cyan', alpha=0.6)
+        ax.plot(areas, [get_gcp(a, -1.3, -1.2) for a in areas], label='Z2 (Techo)', color='blue', alpha=0.6)
+        ax.plot(areas, [get_gcp(a, -2.0, -1.2) for a in areas], label='Z3 (Techo Esquina)', color='navy', ls='--')
+    
+    # Curvas de Fachada (Z4, Z5)
+    ax.plot(areas, [get_gcp(a, -1.1, -0.8) for a in areas], label='Z4 (Muro)', color='green', lw=2)
+    ax.plot(areas, [get_gcp(a, -1.4, -1.1) for a in areas], label='Z5 (Muro Esquina)', color='red', lw=2)
+    
+    # Marcar puntos del elemento actual
+    for z_v in [z1, z2, z3, z4, z5]:
+        ax.scatter([area_ef], [z_v], color='black', zorder=5)
+
+    ax.set_title("Comparativa de Sensibilidad: 5 Zonas (Log-Interpolación)")
+    ax.set_xlabel("Área Tributaria (m²)")
+    ax.set_ylabel("Coeficiente GCp")
+    ax.grid(True, which="both", alpha=0.3)
+    ax.legend(fontsize='small', loc='best')
+    
+    # Mostrar el gráfico corregido
     st.pyplot(fig)
 
 # --- NUEVA SECCIÓN: ESQUEMA DE IDENTIFICACIÓN DE ZONAS ---
 st.markdown("---")
 st.subheader("📍 Identificación de Zonas de Presión (NCh 432)")
 
+
+
 # Mostramos el esquema visual para referencia directa
 if os.path.exists("Esquema_Zonas.png"):
     st.image("Esquema_Zonas.png", caption="Distribución de Zonas 1 a 5 en Edificios de Altura Baja/Media")
 else:
-    # Si aún no subes el archivo, mostramos un mensaje informativo profesional
     st.info("""
     **Referencia Visual de Zonas:**
     * **Zonas 1, 2, 3:** Corresponden a la techumbre (presiones de succión).
     * **Zona 4:** Área central de las fachadas (muros).
     * **Zona 5:** Esquinas de las fachadas (donde el desprendimiento de flujo genera mayores cargas).
     """)
-
 
 
 # CONTACTO (Final del archivo)
