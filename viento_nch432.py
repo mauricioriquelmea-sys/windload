@@ -45,7 +45,6 @@ st.markdown("""
 # 2. FUNCIONES DE SOPORTE (IMÁGENES Y LOGOS EN BASE64)
 # =================================================================
 def get_base64_image(image_path):
-    """Convierte una imagen a base64 para embeberla en el encabezado HTML"""
     if os.path.exists(image_path):
         with open(image_path, "rb") as f:
             data = f.read()
@@ -53,7 +52,6 @@ def get_base64_image(image_path):
     return None
 
 def render_header_images(logo_file, ray_file, eolo_file):
-    """Renderiza el Logo Corporativo, Ray y Eolo en una sola fila centrada."""
     logo_base_64 = get_base64_image(logo_file)
     ray_base_64 = get_base64_image(ray_file)
     eolo_base_64 = get_base64_image(eolo_file)
@@ -106,10 +104,8 @@ if w_in < (l_elem / 3):
 
 with st.sidebar.expander("🏔️ Nota Explicativa: Factor Topográfico (Kzt)"):
     st.markdown("""
-    **Criterios según Capítulo 5:**
-    El factor Kzt considera la aceleración del viento sobre colinas, crestas y escarpes. Se aplica cuando:
-    1. El relieve es aislado y sobresale de los alrededores.
-    2. La estructura está en la mitad superior del relieve.
+    **Criterios de Aplicación (Capítulo 5):**
+    El factor Kzt considera la aceleración del viento sobre colinas, crestas y escarpes aislados. Se aplica cuando el relieve sobresale significativamente de su entorno.
     """)
     if st.button("Ver Diagramas de Relieve"):
         for img in ["F7.png", "F6.png"]:
@@ -134,7 +130,7 @@ st.sidebar.subheader("📋 Factores Normativos")
 with st.sidebar.expander("ℹ️ Nota Explicativa: Factor Kd"):
     st.markdown("""
     **Factor de Dirección (Tabla 2):**
-    Compensa la probabilidad reducida de que el viento sople desde la dirección más crítica precisamente cuando ocurre la ráfaga máxima.
+    Este factor compensa la probabilidad de que el viento sople desde la dirección más crítica precisamente cuando ocurre la ráfaga de diseño.
     * **Edificios (C&R):** 0.85
     * **Estructuras Redondeadas:** 0.90 - 0.95
     """)
@@ -142,20 +138,20 @@ Kd_val = st.sidebar.number_input("Factor de Dirección Kd", 0.5, 1.0, 0.85, step
 
 with st.sidebar.expander("ℹ️ Nota Explicativa: Exposición"):
     st.markdown("""
-    **Rugosidad del Terreno (Cap. 4):**
-    * **B:** Áreas urbanas y suburbanas, áreas boscosas u otros terrenos con numerosas obstrucciones próximas.
-    * **C:** Terrenos abiertos con obstrucciones dispersas < 9m (campos abiertos, pastizales).
-    * **D:** Áreas planas y sin obstrucciones frente a cuerpos de agua (costas).
+    **Rugosidad del Terreno (Capítulo 4):**
+    * **B:** Áreas urbanas y suburbanas, áreas boscosas u otros terrenos con numerosas obstrucciones próximas del tamaño de viviendas unifamiliares o mayores.
+    * **C:** Terrenos abiertos con obstrucciones dispersas que tienen alturas generalmente menores a 9m. Incluye campos abiertos y terrenos agrícolas.
+    * **D:** Áreas planas y sin obstrucciones frente a cuerpos de agua.
     """)
 cat_exp = st.sidebar.selectbox("Categoría de Exposición", ['B', 'C', 'D'], index=0)
 
 with st.sidebar.expander("ℹ️ Nota Explicativa: Importancia"):
     st.markdown("""
-    **Clasificación según Riesgo (Cap. 1):**
-    * **Categoría I:** Estructuras con bajo riesgo (Agrícola).
-    * **Categoría II:** Estándar (Viviendas/Oficinas).
+    **Clasificación según Riesgo (Capítulo 1):**
+    * **Categoría I:** Estructuras con bajo riesgo para la vida humana (Agrícola).
+    * **Categoría II:** Estándar (Residencial/Oficinas).
     * **Categoría III:** Gran número de personas (Colegios/Cines).
-    * **Categoría IV:** Esenciales (Hospitales/Bomberos).
+    * **Categoría IV:** Esenciales tras un desastre (Hospitales/Bomberos).
     """)
 cat_imp = st.sidebar.selectbox("Categoría de Importancia", ['I', 'II', 'III', 'IV'], index=2)
 
@@ -165,11 +161,11 @@ cat_imp = st.sidebar.selectbox("Categoría de Importancia", ['I', 'II', 'III', '
 st.sidebar.subheader("🏠 Clasificación del Cerramiento")
 cerramiento_opcion = st.sidebar.selectbox("Tipo de Cerramiento", ["Cerrado", "Parcialmente Abierto", "Abierto"])
 
-# Diccionario técnico expandido
+# Diccionario técnico riguroso de definiciones y factores GCpi
 gcpi_dict = {
-    "Cerrado": [0.18, "**Edificio Cerrado (Cap. 2):** Un edificio que no cumple con los requisitos de edificio abierto o parcialmente abierto. Las aberturas totales son menores al 1% del área de la pared o < 0.37 m²."],
-    "Parcialmente Abierto": [0.55, "**Edificio Parcialmente Abierto (Cap. 2):** Edificio donde el área de aberturas en una pared excede la suma del resto de las aberturas en la envolvente en más del 10%."],
-    "Abierto": [0.00, "**Edificio Abierto (Cap. 2):** Un edificio que tiene al menos un 80% de aberturas en cada pared. No se generan presiones internas significativas."]
+    "Cerrado": [0.18, "**Edificio Cerrado (Capítulo 2):** Un edificio que no cumple con los requisitos de edificio abierto o parcialmente abierto. Las aberturas totales son menores al 1% del área de la pared o < 0.37 m²."],
+    "Parcialmente Abierto": [0.55, "**Edificio Parcialmente Abierto (Capítulo 2):** Edificio donde el área de aberturas en una pared excede la suma del resto de las aberturas en la envolvente en más del 10%."],
+    "Abierto": [0.00, "**Edificio Abierto (Capítulo 2):** Un edificio que tiene al menos un 80% de aberturas en cada pared. No se generan presiones internas significativas."]
 }
 gc_pi_val, def_cerramiento = gcpi_dict[cerramiento_opcion]
 
@@ -196,19 +192,15 @@ st.markdown(f"""
     <strong>📋 Ficha Técnica de Cerramiento (NCh 432):</strong><br><br>
     <strong>Clasificación Seleccionada:</strong> {cerramiento_opcion}<br>
     <span style="font-size: 1.5em; color: #d9534f;"><strong>Factor de Presión Interna (GCpi): ± {gc_pi_val}</strong></span><br><br>
-    <strong>Nota Explicativa:</strong> {def_cerramiento}
+    <strong>Nota Explicativa Normativa:</strong> {def_cerramiento}
 </div>
 """, unsafe_allow_html=True)
 
-# Caja de Fórmulas Corregida
-st.markdown(f"""
-<div class="formula-box">
-    <strong>1. Presión de Velocidad (qh):</strong> <br>
-    <p style="text-align: center; font-size: 1.2em;">$q_h = 0.613 \cdot K_z \cdot K_{{zt}} \cdot K_d \cdot V^2 \cdot I$</p>
-    <strong>2. Presión Neta de Diseño (p):</strong> <br>
-    <p style="text-align: center; font-size: 1.4em; color: #0056b3;">$p = q_h \cdot [GC_p - GC_{{pi}}]$</p>
-</div>
-""", unsafe_allow_html=True)
+# Caja de Fórmulas y Ecuaciones
+st.markdown("### 📝 Ecuaciones de Diseño Aplicadas")
+st.latex(r"q_h = 0.613 \cdot K_z \cdot K_{zt} \cdot K_d \cdot V^2 \cdot I")
+st.latex(r"p = q_h \cdot [GC_p - GC_{pi}]")
+
 st.info(f"**Presión qh Calculada:** {qh:.2f} kgf/m²")
 
 # Coeficientes de las 5 Zonas (Fachada y Techo)
@@ -224,25 +216,25 @@ with col_res:
     st.markdown("**Resumen de Presiones Netas por Zona**")
     df_res = pd.DataFrame({
         "Zona": ["Z1 (Techo Centro)", "Z2 (Techo Borde)", "Z3 (Techo Esquina)", "Z4 (Fachada Estándar)", "Z5 (Fachada Esquina)"],
-        "GCp (Externo)": [round(z, 3) for z in [z1, z2, z3, z4, z5]],
-        "GCpi (Interno)": [gc_pi_val] * 5,
-        "Presión Neta Diseño (kgf/m²)": [round(qh*(z - gc_pi_val), 2) for z in [z1, z2, z3, z4, z5]]
+        "GCp (Ext)": [round(z, 3) for z in [z1, z2, z3, z4, z5]],
+        "GCpi (Int)": [gc_pi_val] * 5,
+        "Presión Neta (kgf/m²)": [round(qh*(z - gc_pi_val), 2) for z in [z1, z2, z3, z4, z5]]
     })
     st.table(df_res)
-    st.warning("⚠️ Nota: Valores negativos indican succión crítica hacia el exterior.")
+    st.warning("⚠️ Nota: Valores negativos indican succión (presión actuando hacia afuera de la superficie).")
 
 with col_plt:
     areas = np.logspace(0, 1, 50)
     fig, ax = plt.subplots(figsize=(10, 6))
     
-    # Graficar las 5 Zonas Reales
+    # Graficar las 5 Zonas Simultáneas
     if theta <= 7:
-        ax.plot(areas, [get_gcp(a, -1.0, -0.9) for a in areas], label='Z1 (Techo)', color='cyan', alpha=0.5)
-        ax.plot(areas, [get_gcp(a, -1.8, -1.1) for a in areas], label='Z2 (Techo)', color='blue', alpha=0.5)
+        ax.plot(areas, [get_gcp(a, -1.0, -0.9) for a in areas], label='Z1 (Techo Centro)', color='cyan', alpha=0.5)
+        ax.plot(areas, [get_gcp(a, -1.8, -1.1) for a in areas], label='Z2 (Techo Borde)', color='blue', alpha=0.5)
         ax.plot(areas, [get_gcp(a, -2.8, -1.1) for a in areas], label='Z3 (Techo Esq.)', color='navy', ls='--')
     else:
-        ax.plot(areas, [get_gcp(a, -0.9, -0.8) for a in areas], label='Z1 (Techo)', color='cyan', alpha=0.5)
-        ax.plot(areas, [get_gcp(a, -1.3, -1.2) for a in areas], label='Z2 (Techo)', color='blue', alpha=0.5)
+        ax.plot(areas, [get_gcp(a, -0.9, -0.8) for a in areas], label='Z1 (Techo Centro)', color='cyan', alpha=0.5)
+        ax.plot(areas, [get_gcp(a, -1.3, -1.2) for a in areas], label='Z2 (Techo Borde)', color='blue', alpha=0.5)
         ax.plot(areas, [get_gcp(a, -2.0, -1.2) for a in areas], label='Z3 (Techo Esq.)', color='navy', ls='--')
     
     ax.plot(areas, [get_gcp(a, -1.1, -0.8) for a in areas], label='Z4 (Fachada)', color='green', lw=2.5)
@@ -251,11 +243,11 @@ with col_plt:
     for z_v in [z1, z2, z3, z4, z5]:
         ax.scatter([area_ef], [z_v], color='black', s=50, zorder=10)
 
-    ax.set_title("Influencia del Área Tributaria en Coeficientes GCp"); ax.set_xlabel("Área (m²)"); ax.set_ylabel("GCp")
+    ax.set_title("Variación de GCp según Área Tributaria (NCh 432)"); ax.set_xlabel("Área Tributaria (m²)"); ax.set_ylabel("GCp")
     ax.grid(True, which="both", alpha=0.3); ax.legend(fontsize='small', loc='best')
     st.pyplot(fig)
 
-[Image of wind pressure coefficients GCp diagram for zones 1 to 5]
+
 
 # =================================================================
 # 6. ESQUEMAS NORMATIVOS Y REFERENCIAS FINALES
@@ -263,11 +255,11 @@ with col_plt:
 st.markdown("---")
 col_img1, col_img2 = st.columns(2)
 with col_img1:
-    st.subheader("📍 Identificación de Zonas (F8)")
-    if os.path.exists("F8.png"): st.image("F8.png")
+    st.subheader("📍 Identificación de Zonas (Figura 8)")
+    if os.path.exists("F8.png"): st.image("F8.png", caption="Zonificación de presiones externas")
 with col_img2:
-    st.subheader("📍 Esquema Isométrico (F12)")
-    if os.path.exists("F12.png"): st.image("F12.png")
+    st.subheader("📍 Esquema Isométrico (Figura 12)")
+    if os.path.exists("F12.png"): st.image("F12.png", caption="Distribución de presiones en Fachada")
 
 # CONTACTO Y CRÉDITOS
 st.markdown("---")
