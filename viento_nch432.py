@@ -37,6 +37,7 @@ st.markdown("""
         margin-bottom: 25px;
     }
     .stTable { width: 100% !important; font-size: 1.1em; }
+    .sidebar-help { font-size: 0.85em; color: #555; line-height: 1.4; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -103,16 +104,18 @@ area_ef = l_elem * w_trib
 if w_in < (l_elem / 3):
     st.sidebar.warning(f"⚠️ Ancho ajustado por norma a {w_trib:.2f}m (mín. 1/3 del largo)")
 
-with st.sidebar.expander("🏔️ Factor Topográfico Riguroso (Kzt)"):
+with st.sidebar.expander("🏔️ Nota Explicativa: Factor Topográfico (Kzt)"):
     st.markdown("""
-    **Criterios de Aplicación:**
-    El factor Kzt se aplica cuando la estructura se ubica en la mitad superior de una colina o escarpe, donde se produce una aceleración del flujo.
+    **Criterios según Capítulo 5:**
+    El factor Kzt considera la aceleración del viento sobre colinas, crestas y escarpes. Se aplica cuando:
+    1. El relieve es aislado y sobresale de los alrededores.
+    2. La estructura está en la mitad superior del relieve.
     """)
     if st.button("Ver Diagramas de Relieve"):
         for img in ["F7.png", "F6.png"]:
             if os.path.exists(img): st.image(img)
     
-    metodo = st.sidebar.radio("Método de Selección Kzt", ["Manual", "Calculado (Procedimiento Figura 3)"])
+    metodo = st.sidebar.radio("Cálculo de Kzt", ["Manual", "Calculado (Procedimiento Figura 3)"])
     if metodo == "Manual":
         Kzt_val = st.sidebar.number_input("Valor Kzt directo", 1.0, 3.0, 1.0)
     else:
@@ -121,56 +124,52 @@ with st.sidebar.expander("🏔️ Factor Topográfico Riguroso (Kzt)"):
         Lhc = st.sidebar.number_input("Distancia Lh (m)", value=1743.7)
         xdc = st.sidebar.number_input("Distancia horizontal x (m)", value=0.0)
         zac = st.sidebar.number_input("Altura z s/suelo (m)", value=10.0)
-        
-        # Parámetros según NCh 432
         k1b, gam, mu_v = (0.75, 2.5, 1.5) if tipo_relieve == "Escarpe 2D" else (1.05, 1.5, 1.5) if tipo_relieve == "Colina 2D" else (0.95, 1.5, 4.0)
         k1_t, k2_t, k3_t = k1b*(Hc/Lhc), (1-abs(xdc)/(mu_v*Lhc)), math.exp(-gam*zac/Lhc)
         Kzt_val = (1 + k1_t*k2_t*k3_t)**2
         st.sidebar.info(f"Kzt Calculado: {Kzt_val:.3f}")
 
-# --- AYUDA TÉCNICA RIGUROSA: FACTOR DE DIRECCIÓN (Kd) ---
-with st.sidebar.expander("ℹ️ Ayuda Técnica: Factor Kd"):
+st.sidebar.subheader("📋 Factores Normativos")
+
+with st.sidebar.expander("ℹ️ Nota Explicativa: Factor Kd"):
     st.markdown("""
     **Factor de Dirección (Tabla 2):**
-    Compensa la probabilidad de que el viento sople desde la dirección más desfavorable.
+    Compensa la probabilidad reducida de que el viento sople desde la dirección más crítica precisamente cuando ocurre la ráfaga máxima.
     * **Edificios (C&R):** 0.85
     * **Estructuras Redondeadas:** 0.90 - 0.95
-    * **Torres de Celosía:** 0.85
     """)
-Kd_val = st.sidebar.number_input("Factor Kd", 0.5, 1.0, 0.85, step=0.05)
+Kd_val = st.sidebar.number_input("Factor de Dirección Kd", 0.5, 1.0, 0.85, step=0.05)
 
-# --- AYUDA TÉCNICA RIGUROSA: CATEGORÍA DE EXPOSICIÓN ---
-with st.sidebar.expander("ℹ️ Ayuda Técnica: Exposición (B, C, D)"):
+with st.sidebar.expander("ℹ️ Nota Explicativa: Exposición"):
     st.markdown("""
-    **Rugosidad del Terreno:**
-    * **B:** Áreas urbanas/suburbanas con obstrucciones de gran tamaño (Viviendas o más).
-    * **C:** Terrenos abiertos con obstrucciones dispersas < 9m (Campo abierto).
-    * **D:** Áreas planas sin obstrucciones frente a cuerpos de agua (Costa).
+    **Rugosidad del Terreno (Cap. 4):**
+    * **B:** Áreas urbanas y suburbanas, áreas boscosas u otros terrenos con numerosas obstrucciones próximas.
+    * **C:** Terrenos abiertos con obstrucciones dispersas < 9m (campos abiertos, pastizales).
+    * **D:** Áreas planas y sin obstrucciones frente a cuerpos de agua (costas).
     """)
-cat_exp = st.sidebar.selectbox("Exposición", ['B', 'C', 'D'], index=0)
+cat_exp = st.sidebar.selectbox("Categoría de Exposición", ['B', 'C', 'D'], index=0)
 
-# --- AYUDA TÉCNICA RIGUROSA: CATEGORÍA DE IMPORTANCIA ---
-with st.sidebar.expander("ℹ️ Ayuda Técnica: Importancia (I a IV)"):
+with st.sidebar.expander("ℹ️ Nota Explicativa: Importancia"):
     st.markdown("""
-    **Clasificación de Riesgo:**
-    * **I:** Bajo riesgo (Agrícola).
-    * **II:** Estándar (Residencial/Oficinas).
-    * **III:** Concurrencia masiva (Colegios/Cines).
-    * **IV:** Esenciales (Hospitales/Bomberos).
+    **Clasificación según Riesgo (Cap. 1):**
+    * **Categoría I:** Estructuras con bajo riesgo (Agrícola).
+    * **Categoría II:** Estándar (Viviendas/Oficinas).
+    * **Categoría III:** Gran número de personas (Colegios/Cines).
+    * **Categoría IV:** Esenciales (Hospitales/Bomberos).
     """)
-cat_imp = st.sidebar.selectbox("Importancia", ['I', 'II', 'III', 'IV'], index=2)
+cat_imp = st.sidebar.selectbox("Categoría de Importancia", ['I', 'II', 'III', 'IV'], index=2)
 
 # =================================================================
-# 4. MOTOR DE CÁLCULO Y LÓGICA DE PRESIÓN INTERNA
+# 4. MOTOR DE CÁLCULO Y DEFINICIÓN DE CERRAMIENTO (RIGUROSO)
 # =================================================================
-st.sidebar.subheader("🏠 Clasificación del Edificio")
+st.sidebar.subheader("🏠 Clasificación del Cerramiento")
 cerramiento_opcion = st.sidebar.selectbox("Tipo de Cerramiento", ["Cerrado", "Parcialmente Abierto", "Abierto"])
 
-# Diccionario riguroso de definiciones y factores GCpi
+# Diccionario técnico expandido
 gcpi_dict = {
-    "Cerrado": [0.18, "Un edificio que no cumple con los requisitos de abierto o parcialmente abierto. Es el estándar para estructuras estancas donde las aberturas son menores al 1% del área de la pared."],
-    "Parcialmente Abierto": [0.55, "Edificio donde el área de aberturas en una pared excede la suma de aberturas en el resto del edificio en más del 10% o 0.37 m²."],
-    "Abierto": [0.00, "Un edificio que tiene al menos un 80% de aberturas en cada pared. El viento fluye a través de la estructura sin generar presiones internas significativas."]
+    "Cerrado": [0.18, "**Edificio Cerrado (Cap. 2):** Un edificio que no cumple con los requisitos de edificio abierto o parcialmente abierto. Las aberturas totales son menores al 1% del área de la pared o < 0.37 m²."],
+    "Parcialmente Abierto": [0.55, "**Edificio Parcialmente Abierto (Cap. 2):** Edificio donde el área de aberturas en una pared excede la suma del resto de las aberturas en la envolvente en más del 10%."],
+    "Abierto": [0.00, "**Edificio Abierto (Cap. 2):** Un edificio que tiene al menos un 80% de aberturas en cada pared. No se generan presiones internas significativas."]
 }
 gc_pi_val, def_cerramiento = gcpi_dict[cerramiento_opcion]
 
@@ -191,29 +190,26 @@ qh = (0.613 * kz * Kzt_val * Kd_val * (V**2) * imp_map[cat_imp]) * 0.10197
 # 5. DESPLIEGUE TÉCNICO DE RESULTADOS Y FORMULACIÓN
 # =================================================================
 
-# Caja de Fórmulas y Ficha de Cerramiento
-col_formula, col_clasi = st.columns([1, 1.2])
+# Ficha de Cerramiento Destacada
+st.markdown(f"""
+<div class="classification-box">
+    <strong>📋 Ficha Técnica de Cerramiento (NCh 432):</strong><br><br>
+    <strong>Clasificación Seleccionada:</strong> {cerramiento_opcion}<br>
+    <span style="font-size: 1.5em; color: #d9534f;"><strong>Factor de Presión Interna (GCpi): ± {gc_pi_val}</strong></span><br><br>
+    <strong>Nota Explicativa:</strong> {def_cerramiento}
+</div>
+""", unsafe_allow_html=True)
 
-with col_formula:
-    st.markdown("""
-    <div class="formula-box">
-        <strong>1. Presión de Velocidad (qh):</strong> <br>
-        <p style="text-align: center; font-size: 1.2em;">$q_h = 0.613 \cdot K_z \cdot K_{zt} \cdot K_d \cdot V^2 \cdot I$</p>
-        <strong>2. Presión de Diseño Neta (p):</strong> <br>
-        <p style="text-align: center; font-size: 1.4em; color: #0056b3;">$p = q_h \cdot [GC_p - GC_{pi}]$</p>
-    </div>
-    """, unsafe_allow_html=True)
-    st.info(f"**qh Calculado:** {qh:.2f} kgf/m²")
-
-with col_clasi:
-    st.markdown(f"""
-    <div class="classification-box">
-        <strong>Ficha Técnica de Cerramiento (NCh 432):</strong><br>
-        <strong>Estado:</strong> {cerramiento_opcion}<br>
-        <span style="font-size: 1.3em; color: #d9534f;"><strong>Factor GCpi: ± {gc_pi_val}</strong></span><br>
-        <p style="font-size: 0.9em; margin-top: 10px;"><em>{def_cerramiento}</em></p>
-    </div>
-    """, unsafe_allow_html=True)
+# Caja de Fórmulas Corregida
+st.markdown(f"""
+<div class="formula-box">
+    <strong>1. Presión de Velocidad (qh):</strong> <br>
+    <p style="text-align: center; font-size: 1.2em;">$q_h = 0.613 \cdot K_z \cdot K_{{zt}} \cdot K_d \cdot V^2 \cdot I$</p>
+    <strong>2. Presión Neta de Diseño (p):</strong> <br>
+    <p style="text-align: center; font-size: 1.4em; color: #0056b3;">$p = q_h \cdot [GC_p - GC_{{pi}}]$</p>
+</div>
+""", unsafe_allow_html=True)
+st.info(f"**Presión qh Calculada:** {qh:.2f} kgf/m²")
 
 # Coeficientes de las 5 Zonas (Fachada y Techo)
 z1 = get_gcp(area_ef, -1.0, -0.9) if theta <= 7 else get_gcp(area_ef, -0.9, -0.8)
@@ -225,21 +221,21 @@ z4, z5 = get_gcp(area_ef, -1.1, -0.8), get_gcp(area_ef, -1.4, -1.1)
 col_res, col_plt = st.columns([1, 1.3])
 
 with col_res:
-    st.markdown("**Resumen de Presiones Netas de Diseño**")
+    st.markdown("**Resumen de Presiones Netas por Zona**")
     df_res = pd.DataFrame({
         "Zona": ["Z1 (Techo Centro)", "Z2 (Techo Borde)", "Z3 (Techo Esquina)", "Z4 (Fachada Estándar)", "Z5 (Fachada Esquina)"],
         "GCp (Externo)": [round(z, 3) for z in [z1, z2, z3, z4, z5]],
         "GCpi (Interno)": [gc_pi_val] * 5,
-        "Presión Neta (kgf/m²)": [round(qh*(z - gc_pi_val), 2) for z in [z1, z2, z3, z4, z5]]
+        "Presión Neta Diseño (kgf/m²)": [round(qh*(z - gc_pi_val), 2) for z in [z1, z2, z3, z4, z5]]
     })
     st.table(df_res)
-    st.warning("⚠️ Nota: Valores negativos indican succión (presión hacia afuera).")
+    st.warning("⚠️ Nota: Valores negativos indican succión crítica hacia el exterior.")
 
 with col_plt:
     areas = np.logspace(0, 1, 50)
     fig, ax = plt.subplots(figsize=(10, 6))
     
-    # Graficar las 5 Zonas
+    # Graficar las 5 Zonas Reales
     if theta <= 7:
         ax.plot(areas, [get_gcp(a, -1.0, -0.9) for a in areas], label='Z1 (Techo)', color='cyan', alpha=0.5)
         ax.plot(areas, [get_gcp(a, -1.8, -1.1) for a in areas], label='Z2 (Techo)', color='blue', alpha=0.5)
@@ -255,9 +251,11 @@ with col_plt:
     for z_v in [z1, z2, z3, z4, z5]:
         ax.scatter([area_ef], [z_v], color='black', s=50, zorder=10)
 
-    ax.set_title("Variación de GCp según Área Tributaria (NCh 432)"); ax.set_xlabel("Área (m²)"); ax.set_ylabel("GCp")
+    ax.set_title("Influencia del Área Tributaria en Coeficientes GCp"); ax.set_xlabel("Área (m²)"); ax.set_ylabel("GCp")
     ax.grid(True, which="both", alpha=0.3); ax.legend(fontsize='small', loc='best')
     st.pyplot(fig)
+
+[Image of wind pressure coefficients GCp diagram for zones 1 to 5]
 
 # =================================================================
 # 6. ESQUEMAS NORMATIVOS Y REFERENCIAS FINALES
@@ -266,10 +264,10 @@ st.markdown("---")
 col_img1, col_img2 = st.columns(2)
 with col_img1:
     st.subheader("📍 Identificación de Zonas (F8)")
-    if os.path.exists("F8.png"): st.image("F8.png", caption="Distribución de Zonas 1 a 5 en C&R")
+    if os.path.exists("F8.png"): st.image("F8.png")
 with col_img2:
     st.subheader("📍 Esquema Isométrico (F12)")
-    if os.path.exists("F12.png"): st.image("F12.png", caption="Cargas de Viento en Fachadas de Policarbonato")
+    if os.path.exists("F12.png"): st.image("F12.png")
 
 # CONTACTO Y CRÉDITOS
 st.markdown("---")
