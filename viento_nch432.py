@@ -67,7 +67,7 @@ with col1:
     st.write(f"**Área Seleccionada:** {area_trib} m²")
     
     res_df = pd.DataFrame({
-        "Zona": ["Zona 1 (Campo)", "Zona 2 (Borde)", "Zona 3 (Esquina)"],
+        "Zona": ["Zona 1 ([Área Central)", "Zona 2 (Borde)", "Zona 3 (Esquina)"],
         "GCp": [round(z1, 3), round(z2, 3), round(z3, 3)],
         "Presión Neta (kgf/m²)": [round(qh_kgf*(z1-gc_pi), 2), round(qh_kgf*(z2-gc_pi), 2), round(qh_kgf*(z3-gc_pi), 2)]
     })
