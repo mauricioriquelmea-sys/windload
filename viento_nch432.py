@@ -74,7 +74,7 @@ z5 = get_gcp(area_efectiva, -1.4, -1.1) # Muro Esquina
 col1, col2 = st.columns([1, 1.2])
 
 with col1:
-    st.metric("Presión qh", f"{qh:.2f} kgf/m²")
+    st.metric("Presión velocidad de viento (qh)", f"{qh:.2f} kgf/m²")
     df = pd.DataFrame({
         "Zona": ["Zona 1 (Techo Centro)", "Zona 2 (Techo Borde)", "Zona 3 (Techo Esquina)", "Zona 4 (Estándar Muro)", "Zona 5 (Esquina Muro)"],
         "GCp": [round(z, 3) for z in [z1, z2, z3, z4, z5]],
