@@ -7,59 +7,51 @@ import base64
 import os
 import math
 
-# 1. FUNCIÓN DE CONVERSIÓN (Se mantiene igual)
+# 1. CONFIGURACIÓN CORPORATIVA Y CONTROL DE ANCHO TOTAL (FULL WIDTH)
+st.set_page_config(page_title="NCh 432-2025 | Proyectos Estructurales", layout="wide")
+
+# CSS Inyectado para eliminar márgenes laterales y ocupar el 100% del ancho
+st.markdown("""
+    <style>
+    .main > div { padding-left: 1rem; padding-right: 1rem; max-width: 100%; }
+    .stMetric { background-color: #f8f9fa; padding: 15px; border-radius: 10px; border: 1px solid #dee2e6; }
+    .stTable { width: 100% !important; }
+    </style>
+    """, unsafe_allow_html=True)
+
 def get_base64_image(image_path):
-    """Convierte una imagen a base64 para embeberla en HTML"""
     if os.path.exists(image_path):
         with open(image_path, "rb") as f:
             data = f.read()
             return base64.b64encode(data).decode()
     return None
 
-# 2. FUNCIÓN RENDERIZADO CORREGIDA (Ahora acepta 3 argumentos)
 def render_header_images(logo_file, ray_file, eolo_file):
-    """Renderiza el Logo Corporativo, Ray y Eolo en una sola fila centrada."""
     logo_base_64 = get_base64_image(logo_file)
     ray_base_64 = get_base64_image(ray_file)
     eolo_base_64 = get_base64_image(eolo_file)
-    
-    # Creamos el layout con las imágenes que existan
-    html_content = '<div style="display: flex; justify-content: center; align-items: center; gap: 30px; margin-bottom: 30px; flex-wrap: wrap;">'
-    
-    if logo_base_64:
-        html_content += f'<img src="data:image/png;base64,{logo_base_64}" width="350">'
-    
-    if ray_base_64:
-        html_content += f'<img src="data:image/png;base64,{ray_base_64}" width="120" style="opacity: 0.9;">'
-        
-    if eolo_base_64:
-        html_content += f'<img src="data:image/png;base64,{eolo_base_64}" width="120" style="opacity: 0.8;">'
-    
+    html_content = '<div style="display: flex; justify-content: center; align-items: center; gap: 40px; margin-bottom: 30px; flex-wrap: wrap;">'
+    if logo_base_64: html_content += f'<img src="data:image/png;base64,{logo_base_64}" width="380">'
+    if ray_base_64: html_content += f'<img src="data:image/png;base64,{ray_base_64}" width="130" style="opacity: 0.9;">'
+    if eolo_base_64: html_content += f'<img src="data:image/png;base64,{eolo_base_64}" width="130" style="opacity: 0.8;">'
     html_content += '</div>'
-    
-    if logo_base_64 or ray_base_64 or eolo_base_64:
-        st.markdown(html_content, unsafe_allow_html=True)
-    else:
-        st.title("🏗️ Proyectos Estructurales EIRL")
+    st.markdown(html_content, unsafe_allow_html=True)
 
-# 3. LLAMADA CORRECTA A LA FUNCIÓN
 render_header_images("Logo.png", "Ray.png", "Eolo.png")
 
-# --- EL RESTO DE TU CÓDIGO (Subheaders, Motor, etc.) CONTINÚA AQUÍ ---
-
 st.subheader("Determinación de Presiones de Viento según Norma NCh 432-2025")
-st.caption("Análisis Integral de Presiones de Viento: Cubiertas y Fachadas")
+st.caption("Análisis Integral de Presiones de Viento: Cubiertas y Fachadas | Ingeniería Estructural")
 
 # 2. SIDEBAR CON GUÍA TÉCNICA
 st.sidebar.header("⚙️ Parámetros de Diseño")
 
-with st.sidebar.expander("🚩 Guía de Velocidad (V) y Mapas"):
-    st.write("**Zonificación Tabla 1:**")
+with st.sidebar.expander("🚩 Ayuda: Velocidad Básica (V)"):
+    st.write("**Zonificación Tabla 1 (Anexo):**")
     tabla_v = {"Zona": ["I-A", "II-B", "III-B", "IV-B", "V", "VI"], "V (m/s)": [27, 35, 35, 40, 40, 44]}
     st.table(pd.DataFrame(tabla_v))
     if st.button("Desplegar Mapas de Chile"):
-        for img_name in ["F2.png", "F3.png", "F4.png", "F5.png"]:
-            if os.path.exists(img_name): st.image(img_name, caption=f"Norma NCh 432: {img_name}")
+        for img in ["F2.png", "F3.png", "F4.png", "F5.png"]:
+            if os.path.exists(img): st.image(img)
 
 V = st.sidebar.number_input("Velocidad básica V (m/s)", value=35.0)
 H_edif = st.sidebar.number_input("Altura edificio H (m)", value=12.0)
@@ -70,63 +62,35 @@ l_elem = st.sidebar.number_input("Largo elemento (m)", value=3.0)
 w_in = st.sidebar.number_input("Ancho trib. real (m)", value=1.0)
 w_trib = max(w_in, l_elem / 3)
 area_ef = l_elem * w_trib
-if w_in < (l_elem / 3): st.sidebar.warning(f"⚠️ Ancho ajustado por norma a {w_trib:.2f}m (mín. 1/3 del largo)")
 
-with st.sidebar.expander("🏔️ Factor Topográfico (Kzt)"):
-    if st.button("Ver Diagramas Topográficos"):
-        for img in ["F7.png", "F6.png"]:
-            if os.path.exists(img): st.image(img)
-    metodo = st.radio("Método de cálculo", ["Manual", "Calculado (Escarpe/Colina)"])
+with st.sidebar.expander("🏔️ Ayuda: Factor Topográfico (Kzt)"):
+    metodo = st.radio("Método", ["Manual", "Calculado"])
     if metodo == "Manual":
-        Kzt_val = st.number_input("Valor Kzt directo", value=1.0, step=0.1)
+        Kzt_val = st.number_input("Kzt directo", value=1.0)
     else:
-        tipo_relieve = st.selectbox("Forma del relieve", ["Escarpe 2D", "Colina 2D", "Colina 3D"])
-        H_c, L_h, x_d, z_a = st.number_input("H (m)", 27.0), st.number_input("Lh (m)", 1743.7), st.number_input("x (m)", 0.0), st.number_input("z (m)", 10.0)
-        k1_b, gamma, mu = (0.75, 2.5, 1.5) if tipo_relieve == "Escarpe 2D" else (1.05, 1.5, 1.5) if tipo_relieve == "Colina 2D" else (0.95, 1.5, 4.0)
-        k1, k2, k3 = k1_b*(H_c/L_h), (1-abs(x_d)/(mu*L_h)), math.exp(-gamma*z_a/L_h)
-        Kzt_val = (1 + k1*k2*k3)**2
-        st.info(f"Kzt Calculado: {Kzt_val:.3f}")
+        tipo_rel = st.selectbox("Relieve", ["Escarpe 2D", "Colina 2D", "Colina 3D"])
+        Hc, Lhc, xdc, zac = st.number_input("Hc (m)", 27.0), st.number_input("Lh (m)", 1743.7), st.number_input("x (m)", 0.0), st.number_input("z (m)", 10.0)
+        k1b, gam, mu_val = (0.75, 2.5, 1.5) if tipo_rel == "Escarpe 2D" else (1.05, 1.5, 1.5) if tipo_rel == "Colina 2D" else (0.95, 1.5, 4.0)
+        k1_t, k2_t, k3_t = k1b*(Hc/Lhc), (1-abs(xdc)/(mu_val*Lhc)), math.exp(-gam*zac/Lhc)
+        Kzt_val = (1 + k1_t*k2_t*k3_t)**2
+        st.info(f"Kzt: {Kzt_val:.3f}")
+
+# --- SECCIÓN EXPANDIDA: PRESIÓN INTERNA RIGUROSA ---
+st.sidebar.subheader("🏠 Cerramiento y Presión Interna")
+with st.sidebar.expander("ℹ️ Ayuda Técnica: Clasificación GCpi"):
+    st.markdown("""
+    **Según NCh 432 Capítulo 6:**
+    * **Abierto:** Estructura con al menos 80% de aberturas por pared. El viento fluye sin obstrucción. **GCpi = 0.00**.
+    * **Cerrado:** Edificio que no es abierto ni parcialmente abierto. Es el estándar para oficinas y viviendas. **GCpi = ±0.18**.
+    * **Parcialmente Abierto:** Pared con área de aberturas mayor a la suma del resto. Típico en galpones con portones grandes. **GCpi = ±0.55**.
+    """)
+cerramiento = st.sidebar.selectbox("Tipo de Cerramiento", ["Cerrado", "Parcialmente Abierto", "Abierto"], index=0)
+gcpi_map = {"Cerrado": 0.18, "Parcialmente Abierto": 0.55, "Abierto": 0.00}
+gc_pi_val = gcpi_map[cerramiento]
 
 st.sidebar.subheader("📋 Factores Normativos")
-
-# --- AYUDA TÉCNICA RIGUROSA: FACTOR DE DIRECCIÓN (Kd) ---
-with st.sidebar.expander("ℹ️ Ayuda Técnica: Factor de Dirección (Kd)"):
-    st.markdown("""
-    **Criterio Normativo (Tabla 2):**
-    Este factor compensa la reducida probabilidad de que el viento máximo sople precisamente desde la dirección más desfavorable para la orientación del elemento.
-    
-    * **Edificios (Sistemas Principales y C&R):** **0.85**. Aplicable a la mayoría de estructuras de marcos rígidos y revestimientos de fachada.
-    * **Cubiertas Arqueadas:** **0.85**.
-    * **Chimeneas, Tanques y Estructuras Similares:** * Cuadradas: **0.90**
-        * Hexagonales: **0.95**
-        * Redondas: **0.95**
-    * **Torres de Celosía (Triangulares/Cuadradas):** **0.85**.
-    
-    *Nota: Solo debe aplicarse cuando se combina con otros factores de carga.*
-    """)
-Kd_manual = st.sidebar.number_input("Factor Kd", value=0.85, step=0.05)
-
-# --- AYUDA TÉCNICA RIGUROSA: CATEGORÍA DE EXPOSICIÓN ---
-with st.sidebar.expander("ℹ️ Ayuda Técnica: Categoría de Exposición"):
-    st.markdown("""
-    **Definiciones según Rugosidad del Terreno:**
-    
-    * **Exposición B:** Terreno con rugosidad tipo B. Áreas urbanas y suburbanas, áreas boscosas u otros terrenos con numerosas obstrucciones próximas unas a otras (del tamaño de viviendas unifamiliares o mayores). Se aplica si la rugosidad prevalece en 800m o 20 veces la altura del edificio.
-    * **Exposición C:** Terreno abierto con obstrucciones dispersas que tienen alturas generalmente menores a 9m. Incluye campos abiertos y terrenos agrícolas. Es la categoría por defecto si no aplica B o D.
-    * **Exposición D:** Áreas planas y sin obstrucciones expuestas al viento que sopla sobre cuerpos de agua (excluyendo zonas costeras en regiones de huracanes) en una distancia de al menos 1.5km. Se extiende hacia sotavento 200m desde la orilla.
-    """)
+Kd_val = st.sidebar.number_input("Factor Kd (Dirección)", value=0.85)
 cat_exp = st.sidebar.selectbox("Exposición", ['B', 'C', 'D'], index=0)
-
-# --- AYUDA TÉCNICA RIGUROSA: CATEGORÍA DE IMPORTANCIA / RIESGO ---
-with st.sidebar.expander("ℹ️ Ayuda Técnica: Categoría de Edificio (Riesgo)"):
-    st.markdown("""
-    **Clasificación según Consecuencias de Falla:**
-    
-    * **Categoría I:** Edificios y estructuras que representan un **riesgo bajo** para la vida humana en caso de falla (ej: instalaciones agrícolas, bodegas temporales, cercos).
-    * **Categoría II:** Todas las estructuras que **no clasifican** en las categorías I, III y IV (ej: viviendas residenciales, edificios de oficinas estándar, locales comerciales).
-    * **Categoría III:** Edificios con **gran número de personas** o capacidad limitada de evacuación (ej: colegios, cárceles, cines, estadios, centros comerciales de alta concurrencia).
-    * **Categoría IV:** Estructuras **esenciales** cuya operatividad es crítica tras un evento (ej: hospitales, estaciones de bomberos/policía, refugios de emergencia, centros de comunicación y plantas de energía).
-    """)
 cat_imp = st.sidebar.selectbox("Importancia", ['I', 'II', 'III', 'IV'], index=2)
 
 # 3. MOTOR DE CÁLCULO
@@ -140,8 +104,7 @@ exp_params = {'B': [7.0, 366.0], 'C': [9.5, 274.0], 'D': [11.5, 213.0]}
 alpha, zg = exp_params[cat_exp]
 
 kz = 2.01 * ((max(H_edif, 4.6) / zg)**(2/alpha))
-qh = (0.613 * kz * Kzt_val * Kd_manual * (V**2) * imp_map[cat_imp]) * 0.10197
-gc_pi = 0.18
+qh = (0.613 * kz * Kzt_val * Kd_val * (V**2) * imp_map[cat_imp]) * 0.10197
 
 # Coeficientes de Zonas
 z1 = get_gcp(area_ef, -1.0, -0.9) if theta <= 7 else get_gcp(area_ef, -0.9, -0.8)
@@ -149,75 +112,53 @@ z2 = get_gcp(area_ef, -1.8, -1.1) if theta <= 7 else get_gcp(area_ef, -1.3, -1.2
 z3 = get_gcp(area_ef, -2.8, -1.1) if theta <= 7 else get_gcp(area_ef, -2.0, -1.2)
 z4, z5 = get_gcp(area_ef, -1.1, -0.8), get_gcp(area_ef, -1.4, -1.1)
 
-# 4. RESULTADOS Y GRÁFICO INTEGRAL
-col1, col2 = st.columns([1, 1.2])
+# 4. RESULTADOS (FULL WIDTH)
+col1, col2 = st.columns([1, 1.3])
 with col1:
-    st.metric("Presión de velocidad máxima del viento (qh)", f"{qh:.2f} kgf/m²")
+    st.metric("Presión qh (Carga de Velocidad)", f"{qh:.2f} kgf/m²")
+    # Tabla con GCpi incluido para rigor técnico
     df = pd.DataFrame({
-        "Zona": ["Zona 1 (Techo Centro)", "Zona 2 (Techo Borde)", "Zona 3 (Techo Esquina)", "Zona 4 (Muro Estándar)", "Zona 5 (Muro Esquina)"],
-        "GCp": [round(z, 3) for z in [z1, z2, z3, z4, z5]],
-        "Presión Diseño (kgf/m²)": [round(qh*(z-gc_pi), 2) for z in [z1, z2, z3, z4, z5]]
+        "Zona": ["Z1 (Techo Centro)", "Z2 (Techo Borde)", "Z3 (Techo Esquina)", "Z4 (Fachada)", "Z5 (Fachada Esquina)"],
+        "GCp (Ext)": [round(z, 3) for z in [z1, z2, z3, z4, z5]],
+        "GCpi (Int)": [gc_pi_val] * 5,
+        "Presión Neta Diseño (kgf/m²)": [round(qh*(z - gc_pi_val), 2) for z in [z1, z2, z3, z4, z5]]
     })
     st.table(df)
+    st.warning(f"Nota: Presión Neta calculada para la condición de succión crítica (p = qh * [GCp - GCpi])")
 
 with col2:
     areas = np.logspace(0, 1, 50)
-    fig, ax = plt.subplots(figsize=(7, 5))
-    
-    # Graficar las 5 ZONAS
+    fig, ax = plt.subplots(figsize=(10, 6))
     if theta <= 7:
-        ax.plot(areas, [get_gcp(a, -1.0, -0.9) for a in areas], label='Z1 (Techo)', color='cyan', alpha=0.6)
-        ax.plot(areas, [get_gcp(a, -1.8, -1.1) for a in areas], label='Z2 (Techo)', color='blue', alpha=0.6)
+        ax.plot(areas, [get_gcp(a, -1.0, -0.9) for a in areas], label='Z1 (Techo)', color='cyan', alpha=0.5)
+        ax.plot(areas, [get_gcp(a, -1.8, -1.1) for a in areas], label='Z2 (Techo)', color='blue', alpha=0.5)
         ax.plot(areas, [get_gcp(a, -2.8, -1.1) for a in areas], label='Z3 (Techo Esquina)', color='navy', ls='--')
     else:
-        ax.plot(areas, [get_gcp(a, -0.9, -0.8) for a in areas], label='Z1 (Techo)', color='cyan', alpha=0.6)
-        ax.plot(areas, [get_gcp(a, -1.3, -1.2) for a in areas], label='Z2 (Techo)', color='blue', alpha=0.6)
+        ax.plot(areas, [get_gcp(a, -0.9, -0.8) for a in areas], label='Z1 (Techo)', color='cyan', alpha=0.5)
+        ax.plot(areas, [get_gcp(a, -1.3, -1.2) for a in areas], label='Z2 (Techo)', color='blue', alpha=0.5)
         ax.plot(areas, [get_gcp(a, -2.0, -1.2) for a in areas], label='Z3 (Techo Esquina)', color='navy', ls='--')
-    
-    ax.plot(areas, [get_gcp(a, -1.1, -0.8) for a in areas], label='Z4 (Fachada)', color='green', lw=2)
-    ax.plot(areas, [get_gcp(a, -1.4, -1.1) for a in areas], label='Z5 (Fachada Esquina)', color='red', lw=2)
-    
-    for z_v in [z1, z2, z3, z4, z5]:
-        ax.scatter([area_ef], [z_v], color='black', zorder=5)
-
-    ax.set_title("Comparativa de 5 Zonas (Log-Interpolación)")
-    ax.set_xlabel("Área (m²)"); ax.set_ylabel("GCp"); ax.grid(True, alpha=0.3); ax.legend(fontsize='small', loc='best')
+    ax.plot(areas, [get_gcp(a, -1.1, -0.8) for a in areas], label='Z4 (Muro)', color='green', lw=2.5)
+    ax.plot(areas, [get_gcp(a, -1.4, -1.1) for a in areas], label='Z5 (Muro Esquina)', color='red', lw=2.5)
+    for z_v in [z1, z2, z3, z4, z5]: ax.scatter([area_ef], [z_v], color='black', zorder=10)
+    ax.set_title("Sensibilidad de Presiones por Área Tributaria (NCh 432)"); ax.set_xlabel("Área Tributaria (m²)"); ax.set_ylabel("GCp")
+    ax.grid(True, which="both", alpha=0.2); ax.legend(fontsize='small', loc='best')
     st.pyplot(fig)
 
-
-
-# --- SECCIÓN: ESQUEMA ---
+# --- ESQUEMAS FINALES ---
 st.markdown("---")
-st.subheader("📍 Identificación de Zonas de Presión (NCh 432)")
-if os.path.exists("F8.png"):
-    st.image("F8.png", caption="Figura 8 - Distribución de Zonas 1 a 5")
-else:
-    st.info("Suba el esquema F8.png para visualizar las zonas.")
+col_img1, col_img2 = st.columns(2)
+with col_img1:
+    st.subheader("📍 Identificación de Zonas (F8)")
+    if os.path.exists("F8.png"): st.image("F8.png")
+with col_img2:
+    st.subheader("📍 Esquema Isométrico (F12)")
+    if os.path.exists("F12.png"): st.image("F12.png")
 
-
-
-    # --- SECCIÓN: ESQUEMA ---
-st.markdown("---")
-st.subheader("📍 Esquema Isométrico de Distribución de Presiones de Viento")
-if os.path.exists("F12.png"):
-    st.image("F12.png", caption="Figura 12 - Distribución de Presiones en Forma Isométrica")
-else:
-    st.info("Suba el esquema F12.png para visualizar las zonas.")
-
-
-# --- SECCIÓN DE CONTACTO Y CRÉDITOS ---
+# PIE DE PÁGINA
 st.markdown("---")
 st.markdown(f"""
     <div style="display: flex; justify-content: space-between; align-items: center; color: #555; font-size: 0.9em;">
-        <div>
-            <strong>Desarrollado por:</strong> Mauricio Riquelme <br>
-            <em>Ingeniero Civil Estructural</em>
-        </div>
-        <div style="text-align: right;">
-            <strong>Contacto Proyectos Estructurales EIRL:</strong><br>
-            <a href="mailto:mriquelme@proyectosestructurales.com" style="text-decoration: none; color: #007BFF;">
-                mriquelme@proyectosestructurales.com
-            </a>
-        </div>
+        <div><strong>Desarrollado por:</strong> Mauricio Riquelme, Ingeniero Civil Estructural</div>
+        <div style="text-align: right;"><strong>Contacto:</strong> <a href="mailto:mriquelme@proyectosestructurales.com">mriquelme@proyectosestructurales.com</a></div>
     </div>
     """, unsafe_allow_html=True)
