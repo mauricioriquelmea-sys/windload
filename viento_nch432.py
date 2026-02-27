@@ -278,10 +278,10 @@ with col_plt:
 st.markdown("---")
 col_img1, col_img2 = st.columns(2)
 with col_img1:
-    st.subheader("📍 Identificación de Zonas (Figura 8)")
+    st.subheader("📍 Identificación de Zonas")
     if os.path.exists("F8.png"): st.image("F8.png", caption="Zonificación de presiones externas")
 with col_img2:
-    st.subheader("📍 Esquema Isométrico (Figura 12)")
+    st.subheader("📍 Esquema Isométrico")
     if os.path.exists("F12.png"): st.image("F12.png", caption="Distribución de presiones en Fachada")
 
 # CONTACTO Y CRÉDITOS
