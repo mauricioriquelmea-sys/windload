@@ -23,12 +23,18 @@ st.markdown("""
         margin: 20px 0;
         font-family: 'Roboto', sans-serif;
     }
+    .classification-box {
+        background-color: #f1f8ff;
+        padding: 15px;
+        border: 1px solid #c8e1ff;
+        border-radius: 5px;
+        margin-bottom: 20px;
+    }
     .stTable { width: 100% !important; }
     </style>
     """, unsafe_allow_html=True)
 
 def get_base64_image(image_path):
-    """Convierte una imagen a base64 para embeberla en el encabezado HTML"""
     if os.path.exists(image_path):
         with open(image_path, "rb") as f:
             data = f.read()
@@ -36,7 +42,6 @@ def get_base64_image(image_path):
     return None
 
 def render_header_images(logo_file, ray_file, eolo_file):
-    """Renderiza el Logo Corporativo, Ray y Eolo en una sola fila centrada."""
     logo_base_64 = get_base64_image(logo_file)
     ray_base_64 = get_base64_image(ray_file)
     eolo_base_64 = get_base64_image(eolo_file)
@@ -52,7 +57,6 @@ def render_header_images(logo_file, ray_file, eolo_file):
     else:
         st.title("🏗️ Proyectos Estructurales EIRL")
 
-# Renderizado de Encabezado
 render_header_images("Logo.png", "Ray.png", "Eolo.png")
 
 st.subheader("Determinación de Presiones de Viento según Norma NCh 432-2025")
@@ -67,7 +71,7 @@ with st.sidebar.expander("🚩 Guía: Velocidad Básica (V) y Mapas"):
     st.table(pd.DataFrame(tabla_v))
     if st.button("Desplegar Mapas de Viento de Chile"):
         for img in ["F2.png", "F3.png", "F4.png", "F5.png"]:
-            if os.path.exists(img): st.image(img, caption=f"Zonificación: {img}")
+            if os.path.exists(img): st.image(img)
 
 V = st.sidebar.number_input("Velocidad básica V (m/s)", value=35.0)
 H_edif = st.sidebar.number_input("Altura promedio edificio H (m)", value=12.0)
@@ -86,40 +90,33 @@ with st.sidebar.expander("🏔️ Factor Topográfico Riguroso (Kzt)"):
     if st.button("Ver Diagramas de Relieve"):
         for img in ["F7.png", "F6.png"]:
             if os.path.exists(img): st.image(img)
-    metodo = st.radio("Método de Selección", ["Manual", "Calculado (Procedimiento NCh 432)"])
+    metodo = st.radio("Método de Selección", ["Manual", "Calculado"])
     if metodo == "Manual":
         Kzt_val = st.number_input("Kzt directo", value=1.0)
     else:
         tipo_relieve = st.selectbox("Forma de relieve", ["Escarpe 2D", "Colina 2D", "Colina 3D"])
-        Hc = st.number_input("Altura colina H (m)", 27.0)
-        Lhc = st.number_input("Distancia Lh (m)", 1743.7)
-        xdc = st.number_input("Distancia x (m)", 0.0)
-        zac = st.number_input("Altura z s/suelo (m)", 10.0)
+        Hc = st.number_input("Altura colina H (m)", 27.0); Lhc = st.number_input("Distancia Lh (m)", 1743.7)
+        xdc = st.number_input("Distancia x (m)", 0.0); zac = st.number_input("Altura z s/suelo (m)", 10.0)
         k1b, gam, mu_v = (0.75, 2.5, 1.5) if tipo_relieve == "Escarpe 2D" else (1.05, 1.5, 1.5) if tipo_relieve == "Colina 2D" else (0.95, 1.5, 4.0)
         k1_t, k2_t, k3_t = k1b*(Hc/Lhc), (1-abs(xdc)/(mu_v*Lhc)), math.exp(-gam*zac/Lhc)
         Kzt_val = (1 + k1_t*k2_t*k3_t)**2
-        st.info(f"Kzt Calculado: {Kzt_val:.3f}")
+        st.info(f"Kzt: {Kzt_val:.3f}")
 
 # --- SECCIÓN: PRESIÓN INTERNA (GCpi) ---
-st.sidebar.subheader("🏠 Cerramiento y Presión Interna")
-with st.sidebar.expander("ℹ️ Ayuda Técnica: Clasificación de Edificios"):
-    st.markdown("""
-    * **Abierto:** Al menos 80% de aberturas por pared. **GCpi = 0.00**.
-    * **Cerrado:** No es abierto ni parcialmente abierto. **GCpi = ±0.18**.
-    * **Parcialmente Abierto:** Aberturas en una pared exceden la suma del resto. **GCpi = ±0.55**.
-    """)
-opciones_gcpi = {
-    "Cerrado (GCpi = ±0.18)": 0.18,
-    "Parcialmente Abierto (GCpi = ±0.55)": 0.55,
-    "Abierto (GCpi = 0.00)": 0.00
+st.sidebar.subheader("🏠 Cerramiento del Edificio")
+cerramiento_opcion = st.sidebar.selectbox("Tipo de Cerramiento", ["Cerrado", "Parcialmente Abierto", "Abierto"], index=0)
+
+gcpi_dict = {
+    "Cerrado": [0.18, "Edificio que no cumple con los requisitos de abierto o parcialmente abierto. Es el estándar para la mayoría de estructuras estancas."],
+    "Parcialmente Abierto": [0.55, "Edificio donde el área total de aberturas en una pared excede la suma del resto del edificio en más del 10%."],
+    "Abierto": [0.00, "Edificio que tiene al menos un 80% de aberturas en cada pared."]
 }
-cerramiento_label = st.sidebar.selectbox("Tipo de Edificación", list(opciones_gcpi.keys()), index=0)
-gc_pi_val = opciones_gcpi[cerramiento_label]
+gc_pi_val, def_cerramiento = gcpi_dict[cerramiento_opcion]
 
 st.sidebar.subheader("📋 Factores Normativos")
-Kd_val = st.sidebar.number_input("Factor de Dirección Kd", value=0.85)
-cat_exp = st.sidebar.selectbox("Categoría de Exposición", ['B', 'C', 'D'], index=0)
-cat_imp = st.sidebar.selectbox("Categoría de Importancia", ['I', 'II', 'III', 'IV'], index=2)
+Kd_val = st.sidebar.number_input("Factor Kd", value=0.85)
+cat_exp = st.sidebar.selectbox("Exposición", ['B', 'C', 'D'], index=0)
+cat_imp = st.sidebar.selectbox("Importancia", ['I', 'II', 'III', 'IV'], index=2)
 
 # 3. MOTOR DE CÁLCULO
 def get_gcp(a, g1, g10):
@@ -130,31 +127,36 @@ def get_gcp(a, g1, g10):
 imp_map = {'I': 0.87, 'II': 1.0, 'III': 1.15, 'IV': 1.15}
 exp_params = {'B': [7.0, 366.0], 'C': [9.5, 274.0], 'D': [11.5, 213.0]}
 alpha, zg = exp_params[cat_exp]
-
 kz = 2.01 * ((max(H_edif, 4.6) / zg)**(2/alpha))
 qh = (0.613 * kz * Kzt_val * Kd_val * (V**2) * imp_map[cat_imp]) * 0.10197
 
-# 4. DESGLOSE DE FÓRMULAS DE DISEÑO
+# 4. DESGLOSE DE FÓRMULAS Y FICHA TÉCNICA
 st.markdown(f"""
 <div class="formula-box">
     <strong>1. Presión de Velocidad (qh):</strong> {qh:.2f} kgf/m² <br>
     <strong>2. Ecuación de Presión de Diseño Neta (p):</strong> <br>
-    <p style="font-size: 1.3em; text-align: center; font-weight: bold; color: #0056b3;">
-        $p = q_h \times [GC_p - GC_{{pi}}]$
+    <p style="font-size: 1.4em; text-align: center; font-weight: bold; color: #0056b3;">
+        $$p = q_h \\times [GC_p - GC_{{pi}}]$$
     </p>
-    Considerando: $q_h = {qh:.2f}$ | $GC_{{pi}} = {gc_pi_val}$ (Condición: {cerramiento_label.split('(')[0]})
+</div>
+""", unsafe_allow_html=True)
+
+st.markdown(f"""
+<div class="classification-box">
+    <strong>Ficha Técnica de Cerramiento:</strong><br>
+    <strong>Clasificación:</strong> {cerramiento_opcion}<br>
+    <strong>Coeficiente de Presión Interna (GCpi):</strong> {gc_pi_val}<br>
+    <strong>Definición:</strong> {def_cerramiento}
 </div>
 """, unsafe_allow_html=True)
 
 # Coeficientes de las 5 Zonas
-# Techo Z1, Z2, Z3
 z1 = get_gcp(area_ef, -1.0, -0.9) if theta <= 7 else get_gcp(area_ef, -0.9, -0.8)
 z2 = get_gcp(area_ef, -1.8, -1.1) if theta <= 7 else get_gcp(area_ef, -1.3, -1.2)
 z3 = get_gcp(area_ef, -2.8, -1.1) if theta <= 7 else get_gcp(area_ef, -2.0, -1.2)
-# Fachada Z4, Z5
 z4, z5 = get_gcp(area_ef, -1.1, -0.8), get_gcp(area_ef, -1.4, -1.1)
 
-# 5. RESULTADOS Y GRÁFICO INTEGRAL (ZONAS 1-5)
+# 5. RESULTADOS Y GRÁFICO INTEGRAL
 col1, col2 = st.columns([1, 1.3])
 with col1:
     st.subheader("📊 Resumen de Presiones de Diseño")
@@ -165,53 +167,44 @@ with col1:
         "Presión Neta (kgf/m²)": [round(qh*(z - gc_pi_val), 2) for z in [z1, z2, z3, z4, z5]]
     })
     st.table(df_res)
-    st.warning("⚠️ Nota: El signo negativo indica succión (hacia afuera de la superficie).")
 
 with col2:
     areas = np.logspace(0, 1, 50)
     fig, ax = plt.subplots(figsize=(10, 6))
     
     # CURVAS DE TECHO
-    z1_c = [get_gcp(a, -1.0, -0.9) if theta <= 7 else get_gcp(a, -0.9, -0.8) for a in areas]
-    z2_c = [get_gcp(a, -1.8, -1.1) if theta <= 7 else get_gcp(a, -1.3, -1.2) for a in areas]
-    z3_c = [get_gcp(a, -2.8, -1.1) if theta <= 7 else get_gcp(a, -2.0, -1.2) for a in areas]
-    
-    ax.plot(areas, z1_c, label='Z1 (Techo Centro)', color='cyan', alpha=0.7)
-    ax.plot(areas, z2_c, label='Z2 (Techo Borde)', color='blue', alpha=0.7)
-    ax.plot(areas, z3_c, label='Z3 (Techo Esquina)', color='navy', ls='--')
+    ax.plot(areas, [get_gcp(a, -1.0, -0.9) if theta <= 7 else get_gcp(a, -0.9, -0.8) for a in areas], label='Z1 (Techo)', color='cyan', alpha=0.5)
+    ax.plot(areas, [get_gcp(a, -1.8, -1.1) if theta <= 7 else get_gcp(a, -1.3, -1.2) for a in areas], label='Z2 (Techo)', color='blue', alpha=0.5)
+    ax.plot(areas, [get_gcp(a, -2.8, -1.1) if theta <= 7 else get_gcp(a, -2.0, -1.2) for a in areas], label='Z3 (Techo Esquina)', color='navy', ls='--')
     
     # CURVAS DE FACHADA
-    ax.plot(areas, [get_gcp(a, -1.1, -0.8) for a in areas], label='Z4 (Fachada Estándar)', color='green', lw=2.5)
+    ax.plot(areas, [get_gcp(a, -1.1, -0.8) for a in areas], label='Z4 (Fachada)', color='green', lw=2.5)
     ax.plot(areas, [get_gcp(a, -1.4, -1.1) for a in areas], label='Z5 (Fachada Esquina)', color='red', lw=2.5)
     
-    # PUNTOS DE CONTROL (Tu elemento)
     for z_v in [z1, z2, z3, z4, z5]:
         ax.scatter([area_ef], [z_v], color='black', zorder=10)
 
-    ax.set_title("Comparativa de las 5 Zonas (NCh 432): Techo y Fachada")
-    ax.set_xlabel("Área Tributaria (m²)"); ax.set_ylabel("Coeficiente GCp")
+    ax.set_title("Comparativa de 5 Zonas (NCh 432): Techo y Fachada"); ax.set_xlabel("Área (m²)"); ax.set_ylabel("GCp")
     ax.grid(True, which="both", alpha=0.3); ax.legend(fontsize='small', loc='best')
     st.pyplot(fig)
 
 
 
-# --- SECCIÓN: ESQUEMAS NORMATIVOS ---
+# --- ESQUEMAS ---
 st.markdown("---")
 col_img1, col_img2 = st.columns(2)
 with col_img1:
     st.subheader("📍 Identificación de Zonas (F8)")
-    if os.path.exists("F8.png"): st.image("F8.png", caption="Zonificación de presiones externas (Techo y Fachada)")
+    if os.path.exists("F8.png"): st.image("F8.png")
 with col_img2:
     st.subheader("📍 Esquema Isométrico (F12)")
-    if os.path.exists("F12.png"): st.image("F12.png", caption="Distribución isométrica de cargas en Fachada")
+    if os.path.exists("F12.png"): st.image("F12.png")
 
-# CRÉDITOS FINALES
+# CRÉDITOS
 st.markdown("---")
 st.markdown(f"""
     <div style="display: flex; justify-content: space-between; align-items: center; color: #444; font-size: 0.9em;">
         <div><strong>Desarrollado por:</strong> Mauricio Riquelme, Ingeniero Civil Estructural</div>
-        <div style="text-align: right;"><strong>Contacto Proyectos Estructurales EIRL:</strong><br>
-            <a href="mailto:mriquelme@proyectosestructurales.com">mriquelme@proyectosestructurales.com</a>
-        </div>
+        <div style="text-align: right;"><strong>Contacto:</strong> <a href="mailto:mriquelme@proyectosestructurales.com">mriquelme@proyectosestructurales.com</a></div>
     </div>
     """, unsafe_allow_html=True)
