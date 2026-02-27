@@ -62,20 +62,44 @@ with st.sidebar.expander("🏔️ Factor Topográfico (Kzt)"):
 
 st.sidebar.subheader("📋 Factores Normativos")
 
-with st.sidebar.expander("ℹ️ Ayuda: Factor de Dirección (Kd)"):
-    st.write("**Definición:** Factor que reduce la carga según la probabilidad de que el viento sople desde la dirección más crítica.")
-    st.write("* **Edificios:** 0.85")
-    st.write("* **Estructuras Redondeadas:** 0.90 - 0.95")
+# --- AYUDA TÉCNICA RIGUROSA: FACTOR DE DIRECCIÓN (Kd) ---
+with st.sidebar.expander("ℹ️ Ayuda Técnica: Factor de Dirección (Kd)"):
+    st.markdown("""
+    **Criterio Normativo (Tabla 2):**
+    Este factor compensa la reducida probabilidad de que el viento máximo sople precisamente desde la dirección más desfavorable para la orientación del elemento.
+    
+    * **Edificios (Sistemas Principales y C&R):** **0.85**. Aplicable a la mayoría de estructuras de marcos rígidos y revestimientos de fachada.
+    * **Cubiertas Arqueadas:** **0.85**.
+    * **Chimeneas, Tanques y Estructuras Similares:** * Cuadradas: **0.90**
+        * Hexagonales: **0.95**
+        * Redondas: **0.95**
+    * **Torres de Celosía (Triangulares/Cuadradas):** **0.85**.
+    
+    *Nota: Solo debe aplicarse cuando se combina con otros factores de carga.*
+    """)
 Kd_manual = st.sidebar.number_input("Factor Kd", value=0.85, step=0.05)
 
-with st.sidebar.expander("ℹ️ Ayuda: Categoría de Exposición"):
-    st.write("**B:** Áreas urbanas/suburbanas con obstrucciones.")
-    st.write("**C:** Terrenos abiertos con obstrucciones dispersas.")
-    st.write("**D:** Áreas planas frente al mar o cuerpos de agua.")
+# --- AYUDA TÉCNICA RIGUROSA: CATEGORÍA DE EXPOSICIÓN ---
+with st.sidebar.expander("ℹ️ Ayuda Técnica: Categoría de Exposición"):
+    st.markdown("""
+    **Definiciones según Rugosidad del Terreno:**
+    
+    * **Exposición B:** Terreno con rugosidad tipo B. Áreas urbanas y suburbanas, áreas boscosas u otros terrenos con numerosas obstrucciones próximas unas a otras (del tamaño de viviendas unifamiliares o mayores). Se aplica si la rugosidad prevalece en 800m o 20 veces la altura del edificio.
+    * **Exposición C:** Terreno abierto con obstrucciones dispersas que tienen alturas generalmente menores a 9m. Incluye campos abiertos y terrenos agrícolas. Es la categoría por defecto si no aplica B o D.
+    * **Exposición D:** Áreas planas y sin obstrucciones expuestas al viento que sopla sobre cuerpos de agua (excluyendo zonas costeras en regiones de huracanes) en una distancia de al menos 1.5km. Se extiende hacia sotavento 200m desde la orilla.
+    """)
 cat_exp = st.sidebar.selectbox("Exposición", ['B', 'C', 'D'], index=0)
 
-with st.sidebar.expander("ℹ️ Ayuda: Categoría de Edificio"):
-    st.write("**I:** Bajo riesgo (agrícola). **II:** Estándar (oficinas). **III:** Concurrencia masiva. **IV:** Esenciales.")
+# --- AYUDA TÉCNICA RIGUROSA: CATEGORÍA DE IMPORTANCIA / RIESGO ---
+with st.sidebar.expander("ℹ️ Ayuda Técnica: Categoría de Edificio (Riesgo)"):
+    st.markdown("""
+    **Clasificación según Consecuencias de Falla:**
+    
+    * **Categoría I:** Edificios y estructuras que representan un **riesgo bajo** para la vida humana en caso de falla (ej: instalaciones agrícolas, bodegas temporales, cercos).
+    * **Categoría II:** Todas las estructuras que **no clasifican** en las categorías I, III y IV (ej: viviendas residenciales, edificios de oficinas estándar, locales comerciales).
+    * **Categoría III:** Edificios con **gran número de personas** o capacidad limitada de evacuación (ej: colegios, cárceles, cines, estadios, centros comerciales de alta concurrencia).
+    * **Categoría IV:** Estructuras **esenciales** cuya operatividad es crítica tras un evento (ej: hospitales, estaciones de bomberos/policía, refugios de emergencia, centros de comunicación y plantas de energía).
+    """)
 cat_imp = st.sidebar.selectbox("Importancia", ['I', 'II', 'III', 'IV'], index=2)
 
 # 3. MOTOR DE CÁLCULO
