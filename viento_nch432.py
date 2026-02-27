@@ -21,19 +21,17 @@ def render_logo(image_file):
         st.title("🏗️ Proyectos Estructurales EIRL")
 
 render_logo("Logo.png")
-st.subheader("Motor de Cálculo: Presión de Viento (NCh 432-2025)")
+st.subheader("Motor de Cálculo Integral: Cubiertas y Fachadas (NCh 432-2025)")
 
 # 2. ENTRADA DE DATOS (SIDEBAR)
 st.sidebar.header("⚙️ Parámetros de Diseño")
 
-# Velocidad y Altura
-V = st.sidebar.number_input("Velocidad básica V (m/s)", value=35.0, help="Velocidad ráfaga de 3 seg a 10m de altura.")
+V = st.sidebar.number_input("Velocidad básica V (m/s)", value=35.0)
 H_edif = st.sidebar.number_input("Altura promedio edificio H (m)", value=12.0)
 theta = st.sidebar.slider("Inclinación de Techo θ (°)", 0, 45, 10)
 
-# Geometría del Elemento y Regla de 1/3
 st.sidebar.subheader("📐 Geometría del Elemento")
-l_elem = st.sidebar.number_input("Largo del elemento / Luz (m)", value=3.0, min_value=0.1)
+l_elem = st.sidebar.number_input("Largo del elemento (m)", value=3.0, min_value=0.1)
 w_input = st.sidebar.number_input("Ancho tributario real (m)", value=1.0, min_value=0.1)
 
 w_trib = max(w_input, l_elem / 3)
@@ -41,85 +39,79 @@ area_efectiva = l_elem * w_trib
 
 if w_input < (l_elem / 3):
     st.sidebar.warning(f"⚠️ Ancho ajustado por norma a {w_trib:.2f}m (mín. 1/3 del largo)")
-st.sidebar.markdown(f"**Área Efectiva final:** {area_efectiva:.2f} m²")
 
-# Clasificación
-exp_cat = st.sidebar.selectbox("Categoría de Exposición", ['B', 'C', 'D', 'A'], index=1)
-imp_cat = st.sidebar.selectbox("Categoría de Edificio", ['I', 'II', 'III', 'IV'], index=2)
-
-# --- MÓDULO: FACTOR TOPOGRÁFICO (Kzt) ---
 with st.sidebar.expander("🏔️ Cálculo de Factor Topográfico (Kzt)"):
-    metodo_kzt = st.radio("Método", ["Manual", "Calculado (Escarpe/Colina)"])
+    metodo_kzt = st.radio("Método", ["Manual", "Calculado"])
     if metodo_kzt == "Manual":
         Kzt_val = st.number_input("Kzt directo", value=1.0, step=0.1)
     else:
-        tipo_relieve = st.selectbox("Forma de relieve", ["Escarpe 2D", "Colina 2D", "Colina 3D"])
-        H_colina = st.number_input("Altura colina H (m)", value=27.0)
-        Lh = st.number_input("Distancia Lh (m)", value=1743.7)
-        x_dist = st.number_input("Distancia x (m)", value=0.0)
-        z_alt = st.number_input("Altura z sobre suelo (m)", value=10.0)
+        tipo_relieve = st.selectbox("Forma", ["Escarpe 2D", "Colina 2D", "Colina 3D"])
+        H_c = st.number_input("H colina (m)", value=27.0)
+        L_h = st.number_input("Lh (m)", value=1743.7)
+        x_d = st.number_input("Distancia x (m)", value=0.0)
+        z_a = st.number_input("Altura z (m)", value=10.0)
         
-        if tipo_relieve == "Escarpe 2D": k1_b, gamma, mu = 0.75, 2.5, 1.5
-        elif tipo_relieve == "Colina 2D": k1_b, gamma, mu = 1.05, 1.5, 1.5
-        else: k1_b, gamma, mu = 0.95, 1.5, 4.0
-
-        k1 = k1_b * (H_colina / Lh)
-        k2 = (1 - abs(x_dist) / (mu * Lh))
-        k3 = math.exp(-gamma * z_alt / Lh)
+        k1_b, g, m = (0.75, 2.5, 1.5) if tipo_relieve == "Escarpe 2D" else (1.05, 1.5, 1.5) if tipo_relieve == "Colina 2D" else (0.95, 1.5, 4.0)
+        k1 = k1_b * (H_c / L_h); k2 = (1 - abs(x_d) / (m * L_h)); k3 = math.exp(-g * z_a / L_h)
         Kzt_val = (1 + k1 * k2 * k3)**2
-        st.info(f"Kzt Calculado: {Kzt_val:.3f}")
+        st.info(f"Kzt: {Kzt_val:.3f}")
+
+exp_cat = st.sidebar.selectbox("Exposición", ['B', 'C', 'D', 'A'], index=1)
+imp_cat = st.sidebar.selectbox("Importancia", ['I', 'II', 'III', 'IV'], index=2)
 
 # 3. FUNCIONES DE CÁLCULO
-def get_gcp_interp(area, gcp_1, gcp_10):
-    if area <= 1.0: return gcp_1
-    if area >= 10.0: return gcp_10
-    return gcp_1 + (gcp_10 - gcp_1) * (np.log10(area) - np.log10(1.0))
+def get_gcp(area, g1, g10):
+    if area <= 1.0: return g1
+    if area >= 10.0: return g10
+    return g1 + (g10 - g1) * (np.log10(area) - np.log10(1.0))
 
-# 4. PROCESAMIENTO MATEMÁTICO
+# 4. MOTOR MATEMÁTICO
 imp_map = {'I': 0.87, 'II': 1.0, 'III': 1.15, 'IV': 1.15}
-I_factor = imp_map[imp_cat]
 exp_params = {'A': [5.0, 457.0], 'B': [7.0, 366.0], 'C': [9.5, 274.0], 'D': [11.5, 213.0]}
 alpha, zg = exp_params[exp_cat]
 
 kz = 2.01 * ((max(H_edif, 4.6) / zg)**(2/alpha))
-qh_kgf = (0.613 * kz * Kzt_val * 0.85 * (V**2) * I_factor) * 0.10197
-
-# Coeficientes GCp (Interpolación)
+qh = (0.613 * kz * Kzt_val * 0.85 * (V**2) * imp_map[imp_cat]) * 0.10197
 gc_pi = 0.18
-if theta <= 7:
-    z1, z2, z3 = get_gcp_interp(area_efectiva, -1.0, -0.9), get_gcp_interp(area_efectiva, -1.8, -1.1), get_gcp_interp(area_efectiva, -2.8, -1.1)
-else:
-    z1, z2, z3 = get_gcp_interp(area_efectiva, -0.9, -0.8), get_gcp_interp(area_efectiva, -1.3, -1.2), get_gcp_interp(area_efectiva, -2.0, -1.2)
 
-# 5. RESULTADOS Y GRÁFICO
+# Interpolación de las 5 Zonas
+if theta <= 7:
+    z1, z2, z3 = get_gcp(area_efectiva, -1.0, -0.9), get_gcp(area_efectiva, -1.8, -1.1), get_gcp(area_efectiva, -2.8, -1.1)
+else:
+    z1, z2, z3 = get_gcp(area_efectiva, -0.9, -0.8), get_gcp(area_efectiva, -1.3, -1.2), get_gcp(area_efectiva, -2.0, -1.2)
+
+z4 = get_gcp(area_efectiva, -1.1, -0.8) # Muro Interior
+z5 = get_gcp(area_efectiva, -1.4, -1.1) # Muro Esquina
+
+# 5. RESULTADOS
 col1, col2 = st.columns([1, 1])
 with col1:
-    st.metric("Presión qh", f"{qh_kgf:.2f} kgf/m²")
-    res_df = pd.DataFrame({
-        "Zona": ["Zona 1 (Central)", "Zona 2 (Borde)", "Zona 3 (Esquina)"],
-        "GCp": [round(z1, 3), round(z2, 3), round(z3, 3)],
-        "Presión Neta (kgf/m²)": [round(qh_kgf*(z1-gc_pi), 2), round(qh_kgf*(z2-gc_pi), 2), round(qh_kgf*(z3-gc_pi), 2)]
+    st.metric("Presión qh", f"{qh:.2f} kgf/m²")
+    df = pd.DataFrame({
+        "Ubicación": ["Techo (Centro)", "Techo (Borde)", "Techo (Esquina)", "Muro (Centro)", "Muro (Esquina)"],
+        "Zona": ["Zona 1", "Zona 2", "Zona 3", "Zona 4", "Zona 5"],
+        "GCp": [round(z, 3) for z in [z1, z2, z3, z4, z5]],
+        "Presión Neta (kgf/m²)": [round(qh*(z-gc_pi), 2) for z in [z1, z2, z3, z4, z5]]
     })
-    st.table(res_df)
+    st.table(df)
 
 with col2:
     areas = np.logspace(0, 1, 20)
-    gcp_curva = [get_gcp_interp(a, -2.8, -1.1) if theta <= 7 else get_gcp_interp(a, -2.0, -1.2) for a in areas]
-    fig, ax = plt.subplots(figsize=(5, 3))
-    ax.plot(areas, gcp_curva, color='blue', label='Interpolación log')
-    ax.scatter([area_efectiva], [z3], color='red', zorder=5, label='Tu elemento')
-    ax.set_xlabel("Área Tributaria (m²)"); ax.set_ylabel("GCp"); ax.grid(True, which="both", alpha=0.5); ax.legend()
+    c_z3 = [get_gcp(a, -2.8, -1.1) if theta <= 7 else get_gcp(a, -2.0, -1.2) for a in areas]
+    c_z5 = [get_gcp(a, -1.4, -1.1) for a in areas]
+    fig, ax = plt.subplots(figsize=(5, 3.2))
+    ax.plot(areas, c_z3, label='Zona 3 (Techo)', color='red', ls='--')
+    ax.plot(areas, c_z5, label='Zona 5 (Muro)', color='orange')
+    ax.scatter([area_efectiva, area_efectiva], [z3, z5], color='black', zorder=5)
+    ax.set_xlabel("Área Tributaria (m²)"); ax.set_ylabel("GCp"); ax.grid(True, which="both", alpha=0.4); ax.legend()
     st.pyplot(fig)
+
+
 
 # --- SECCIÓN DE CONTACTO ---
 st.markdown("---")
-col_c1, col_c2 = st.columns([3, 1])
+col_c1, col_c2 = st.columns([2, 1])
 with col_c1:
     st.caption("Cálculo bajo normativa NCh 432-2025. Proyectos Estructurales EIRL.")
 with col_c2:
-    st.markdown(f"""
-    <div style="text-align: right; font-size: 0.9em; color: #555;">
-        <strong>Contacto Ingeniería:</strong><br>
-        <a href="mailto:mriquelme@proyectosestructurales.com">mriquelme@proyectosestructurales.com</a>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown(f"""<div style="text-align: right; font-size: 0.9em; color: #555;"><strong>Contacto Ingeniería:</strong><br><a href="mailto:mriquelme@proyectosestructurales.com">mriquelme@proyectosestructurales.com</a></div>""", unsafe_allow_html=True)
