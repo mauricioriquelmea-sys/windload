@@ -126,6 +126,10 @@ with st.sidebar.expander("🏔️ Nota Explicativa: Factor Topográfico (Kzt)"):
     * **Ubicación Crítica:** El cálculo asume $x = 0$ (cima de la cresta o escarpe) para obtener el valor máximo de aceleración del flujo.
     """)
 
+    if st.button("Ver Diagramas de Relieve"):
+        for img in ["F7.png", "F6.png"]:
+            if os.path.exists(img): st.image(img)
+
 metodo = st.sidebar.radio("Cálculo de Kzt", ["Manual", "Calculado"])
 
 if metodo == "Manual":
