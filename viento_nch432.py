@@ -103,7 +103,7 @@ w_in = st.sidebar.number_input("Ancho tributario real (m)", 0.1, 50.0, 1.0)
 w_trib = max(w_in, l_elem / 3)
 area_ef = l_elem * w_trib
 
-st.sidebar.info(f"**Area efectiva: {area_ef} m2**")
+st.sidebar.info(f"**Área efectiva: {area_ef} m2**")
 
 
 if w_in < (l_elem / 3):
