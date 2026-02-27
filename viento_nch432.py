@@ -147,27 +147,52 @@ cat_exp = st.sidebar.selectbox("Categoría de Exposición", ['B', 'C', 'D'], ind
 
 with st.sidebar.expander("ℹ️ Nota Explicativa: Importancia"):
     st.markdown("""
-    **Clasificación según Riesgo (Capítulo 1):**
-    * **Categoría I:** Estructuras con bajo riesgo para la vida humana (Agrícola).
-    * **Categoría II:** Estándar (Residencial/Oficinas).
-    * **Categoría III:** Gran número de personas (Colegios/Cines).
-    * **Categoría IV:** Esenciales tras un desastre (Hospitales/Bomberos).
+    **Clasificación según Consecuencias de Falla:**
+    
+    * **Categoría I:** Edificios y estructuras que representan un **riesgo bajo** para la vida humana en caso de falla (ej: instalaciones agrícolas, bodegas temporales, cercos).
+    * **Categoría II:** Todas las estructuras que **no clasifican** en las categorías I, III y IV (ej: viviendas residenciales, edificios de oficinas estándar, locales comerciales).
+    * **Categoría III:** Edificios con **gran número de personas** o capacidad limitada de evacuación (ej: colegios, cárceles, cines, estadios, centros comerciales de alta concurrencia).
+    * **Categoría IV:** Estructuras **esenciales** cuya operatividad es crítica tras un evento (ej: hospitales, estaciones de bomberos/policía, refugios de emergencia, centros de comunicación y plantas de energía).
     """)
 cat_imp = st.sidebar.selectbox("Categoría de Importancia", ['I', 'II', 'III', 'IV'], index=2)
 
 # =================================================================
 # 4. MOTOR DE CÁLCULO Y DEFINICIÓN DE CERRAMIENTO (RIGUROSO)
 # =================================================================
+# --- SECCIÓN: CLASIFICACIÓN DEL CERRAMIENTO (MODIFICADO) ---
 st.sidebar.subheader("🏠 Clasificación del Cerramiento")
-cerramiento_opcion = st.sidebar.selectbox("Tipo de Cerramiento", ["Cerrado", "Parcialmente Abierto", "Abierto"])
 
-# Diccionario técnico riguroso de definiciones y factores GCpi
+# 1. Nota explicativa rigurosa mediante expander (igual al ejemplo de Importancia)
+with st.sidebar.expander("ℹ️ Nota Explicativa: Clasificación de Cerramiento"):
+    st.markdown("""
+    **Definiciones según NCh 432 (Capítulo 2):**
+    
+    * **Edificio Abierto:** Un edificio que tiene cada pared abierta en al menos un 80%. Esto implica que el viento fluye a través de la estructura sin generar presiones internas significativas.
+    
+    * **Edificio Parcialmente Abierto:** Un edificio que cumple con ambas condiciones:
+        1. El área total de aberturas en una pared que recibe presión externa positiva excede la suma de las áreas de las aberturas en el resto de la envolvente en más de un 10%.
+        2. El área total de aberturas en una pared que recibe presión externa positiva excede 0.37 m² o el 1% del área de dicha pared, y el porcentaje de aberturas en el resto de la envolvente no excede el 20%.
+        
+    * **Edificio Cerrado:** Un edificio que no cumple con los requisitos de edificio abierto o parcialmente abierto. Es el estándar para estructuras estancas donde las aberturas son mínimas.
+    """)
+
+# 2. Selector de tipo de cerramiento
+cerramiento_opcion = st.sidebar.selectbox(
+    "Tipo de Cerramiento", 
+    ["Cerrado", "Parcialmente Abierto", "Abierto"],
+    index=0
+)
+
+# 3. Asignación de factores numéricos
 gcpi_dict = {
-    "Cerrado": [0.18, "**Edificio Cerrado (Capítulo 2):** Un edificio que no cumple con los requisitos de edificio abierto o parcialmente abierto. Las aberturas totales son menores al 1% del área de la pared o < 0.37 m²."],
-    "Parcialmente Abierto": [0.55, "**Edificio Parcialmente Abierto (Capítulo 2):** Edificio donde el área de aberturas en una pared excede la suma del resto de las aberturas en la envolvente en más del 10%."],
-    "Abierto": [0.00, "**Edificio Abierto (Capítulo 2):** Un edificio que tiene al menos un 80% de aberturas en cada pared. No se generan presiones internas significativas."]
+    "Cerrado": 0.18,
+    "Parcialmente Abierto": 0.55,
+    "Abierto": 0.00
 }
-gc_pi_val, def_cerramiento = gcpi_dict[cerramiento_opcion]
+gc_pi_val = gcpi_dict[cerramiento_opcion]
+
+# 4. Despliegue explícito del factor asociado bajo el selector
+st.sidebar.info(f"**Factor GCpi asociado: ± {gc_pi_val}**")
 
 def get_gcp(a, g1, g10):
     if a <= 1.0: return g1
