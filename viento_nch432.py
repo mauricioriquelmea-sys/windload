@@ -374,13 +374,26 @@ with col_img2:
     st.subheader("📍 Esquema Isométrico")
     if os.path.exists("F12.png"): st.image("F12.png")
 
-# CONTACTO Y CRÉDITOS
+# =================================================================
+# 8. SECCIÓN DE CONTACTO Y CRÉDITOS FINALES
+# =================================================================
 st.markdown("---")
 st.markdown(f"""
-    <div style="display: flex; justify-content: space-between; align-items: center; color: #444; font-size: 0.9em;">
-        <div><strong>Autor:</strong> Mauricio Riquelme | Ingeniero Civil Estructural</div>
-        <div style="text-align: right;"><strong>Contacto Proyectos Estructurales EIRL:</strong><br>
-            <a href="mailto:mriquelme@proyectosestructurales.com">mriquelme@proyectosestructurales.com</a>
+    <div style="display: flex; justify-content: space-between; align-items: center; color: #444; font-size: 0.95em;">
+        <div>
+            <strong>Desarrollado por:</strong> Mauricio Riquelme <br>
+            <em>Ingeniero Civil Estructural | PUC</em>
         </div>
+        <div style="text-align: right;">
+            <strong>Contacto Proyectos Estructurales EIRL:</strong><br>
+            <a href="mailto:mriquelme@proyectosestructurales.com" style="text-decoration: none; color: #007BFF; font-weight: bold;">
+                mriquelme@proyectosestructurales.com
+            </a>
+        </div>
+    </div>
+    <div style="text-align: center; margin-top: 50px; margin-bottom: 20px;">
+        <p style="font-family: 'Georgia', serif; font-size: 1.4em; color: #003366; font-style: italic; letter-spacing: 1px;">
+            "Programming is understanding"
+        </p>
     </div>
     """, unsafe_allow_html=True)
