@@ -110,6 +110,7 @@ if w_in < (l_elem / 3):
     st.sidebar.warning(f"⚠️ Ancho ajustado por norma a {w_trib:.2f}m (mín. 1/3 del largo)")
 
 # --- FACTOR TOPOGRÁFICO ---
+
 with st.sidebar.expander("🏔️ Nota Explicativa: Factor Topográfico (Kzt)"):
     st.markdown("""
     **Criterios de Aplicación (Capítulo 5):**
@@ -118,21 +119,13 @@ with st.sidebar.expander("🏔️ Nota Explicativa: Factor Topográfico (Kzt)"):
     * **K1:** Factor de forma del relieve.
     * **K2:** Factor de reducción por distancia horizontal.
     * **K3:** Factor de reducción por altura sobre el suelo.
-    """)
-    if st.button("Ver Diagramas de Relieve"):
-        for img in ["F7.png", "F6.png"]:
-            if os.path.exists(img): st.image(img)
-    
-with st.sidebar.expander("🏔️ Nota Explicativa: Factor Topográfico (Kzt)"):
-    st.markdown("""
-    **Criterios y Definiciones (Figura 3):**
     
     * **Lh (Distancia horizontal):** Es la distancia horizontal en barlovento desde la cresta hasta donde la diferencia de elevación es la mitad de la altura del relieve ($H_c/2$).
     * **H_edif (Altura):** Se utiliza la altura máxima del edificio para determinar el factor de reducción $K_3$.
     * **Ubicación Crítica:** El cálculo asume $x = 0$ (cima de la cresta o escarpe) para obtener el valor máximo de aceleración del flujo.
     """)
 
-metodo = st.sidebar.radio("Cálculo de Kzt", ["Manual", "Calculado (Figura 3)"])
+metodo = st.sidebar.radio("Cálculo de Kzt", ["Manual", "Calculado"])
 
 if metodo == "Manual":
     Kzt_val = st.sidebar.number_input("Valor Kzt directo", 1.0, 3.0, 1.0)
