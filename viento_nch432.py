@@ -105,7 +105,7 @@ z4 = get_gcp(area_ef, -1.1, -0.8)
 z5 = get_gcp(area_ef, -1.4, -1.1)
 
 
-# 4. RESULTADOS Y GRÁFICO (Sección anterior)
+# 4. RESULTADOS Y GRÁFICO
 col1, col2 = st.columns([1, 1.2])
 
 with col1:
@@ -119,27 +119,24 @@ with col1:
     st.table(df)
 
 with col2:
-    # (Mantener aquí el código del gráfico de Matplotlib que ya tenemos)
+    # (Aquí va el código del gráfico de Matplotlib generado previamente)
     st.pyplot(fig)
 
 # --- NUEVA SECCIÓN: ESQUEMA DE IDENTIFICACIÓN DE ZONAS ---
 st.markdown("---")
-st.subheader("📍 Esquema de Identificación de Zonas (NCh 432)")
+st.subheader("📍 Identificación de Zonas de Presión (NCh 432)")
 
-# Intentamos cargar el esquema (puedes llamarlo Esquema_Zonas.png en tu repo)
-col_img1, col_img2 = st.columns([2, 1])
-
-with col_c1:
-    if os.path.exists("Esquema_Zonas.png"):
-        st.image("Esquema_Zonas.png", caption="Distribución de presiones en Componentes y Revestimientos (C&R)")
-    else:
-        # Si no tienes la imagen aún, mostramos un recordatorio visual del estándar
-        st.info("""
-        **Referencia de Ubicación:**
-        * **Zona 1, 2, 3:** Corresponden a la techumbre (succión hacia afuera).
-        * **Zona 4:** Área central de las fachadas (muros).
-        * **Zona 5:** Esquinas de las fachadas (donde el flujo de viento se desprende).
-        """)
+# Mostramos el esquema visual para referencia directa
+if os.path.exists("Esquema_Zonas.png"):
+    st.image("Esquema_Zonas.png", caption="Distribución de Zonas 1 a 5 en Edificios de Altura Baja/Media")
+else:
+    # Si aún no subes el archivo, mostramos un mensaje informativo profesional
+    st.info("""
+    **Referencia Visual de Zonas:**
+    * **Zonas 1, 2, 3:** Corresponden a la techumbre (presiones de succión).
+    * **Zona 4:** Área central de las fachadas (muros).
+    * **Zona 5:** Esquinas de las fachadas (donde el desprendimiento de flujo genera mayores cargas).
+    """)
 
 
 
