@@ -343,10 +343,10 @@ El perfil de **Sotavento** se representa como una succión constante basada en l
 st.divider()
 col_img1, col_img2 = st.columns(2)
 with col_img1:
-    st.subheader("📍 Identificación de Zonas (F8)")
+    st.subheader("📍 Identificación de Zonas")
     if os.path.exists("F8.png"): st.image("F8.png")
 with col_img2:
-    st.subheader("📍 Esquema Isométrico (F12)")
+    st.subheader("📍 Esquema Isométrico")
     if os.path.exists("F12.png"): st.image("F12.png")
 
 # CONTACTO Y CRÉDITOS
