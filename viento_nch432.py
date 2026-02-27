@@ -156,44 +156,40 @@ with st.sidebar.expander("ℹ️ Nota Explicativa: Importancia"):
     """)
 cat_imp = st.sidebar.selectbox("Categoría de Importancia", ['I', 'II', 'III', 'IV'], index=2)
 
+
 # =================================================================
 # 4. MOTOR DE CÁLCULO Y DEFINICIÓN DE CERRAMIENTO (RIGUROSO)
 # =================================================================
-# --- SECCIÓN: CLASIFICACIÓN DEL CERRAMIENTO (MODIFICADO) ---
 st.sidebar.subheader("🏠 Clasificación del Cerramiento")
 
-# 1. Nota explicativa rigurosa mediante expander (igual al ejemplo de Importancia)
 with st.sidebar.expander("ℹ️ Nota Explicativa: Clasificación de Cerramiento"):
     st.markdown("""
     **Definiciones según NCh 432 (Capítulo 2):**
     
-    * **Edificio Abierto:** Un edificio que tiene cada pared abierta en al menos un 80%. Esto implica que el viento fluye a través de la estructura sin generar presiones internas significativas.
-    
-    * **Edificio Parcialmente Abierto:** Un edificio que cumple con ambas condiciones:
-        1. El área total de aberturas en una pared que recibe presión externa positiva excede la suma de las áreas de las aberturas en el resto de la envolvente en más de un 10%.
-        2. El área total de aberturas en una pared que recibe presión externa positiva excede 0.37 m² o el 1% del área de dicha pared, y el porcentaje de aberturas en el resto de la envolvente no excede el 20%.
-        
-    * **Edificio Cerrado:** Un edificio que no cumple con los requisitos de edificio abierto o parcialmente abierto. Es el estándar para estructuras estancas donde las aberturas son mínimas.
+    * **Edificio Abierto:** Un edificio que tiene cada pared abierta en al menos un 80%.
+    * **Edificio Parcialmente Abierto:** Cumple con área de aberturas en una pared > suma del resto en > 10%, y aberturas > 0.37 m² o 1% de la pared.
+    * **Edificio Cerrado:** No cumple los requisitos de abierto o parcialmente abierto.
     """)
 
-# 2. Selector de tipo de cerramiento
 cerramiento_opcion = st.sidebar.selectbox(
     "Tipo de Cerramiento", 
     ["Cerrado", "Parcialmente Abierto", "Abierto"],
     index=0
 )
 
-# 3. Asignación de factores numéricos
-gcpi_dict = {
-    "Cerrado": 0.18,
-    "Parcialmente Abierto": 0.55,
-    "Abierto": 0.00
+# Diccionario con el Factor y la Nota explicativa para usar en el cuerpo principal
+gcpi_data = {
+    "Cerrado": [0.18, "Un edificio que no cumple con los requisitos de abierto o parcialmente abierto. Es el estándar para estructuras estancas."],
+    "Parcialmente Abierto": [0.55, "Edificio donde el área de aberturas en una pared excede la suma de aberturas en el resto de la envolvente en más del 10%."],
+    "Abierto": [0.00, "Un edificio que tiene al menos un 80% de aberturas en cada pared. El viento fluye sin generar presiones internas."]
 }
-gc_pi_val = gcpi_dict[cerramiento_opcion]
 
-# 4. Despliegue explícito del factor asociado bajo el selector
+gc_pi_val = gcpi_data[cerramiento_opcion][0]
+nota_tecnica_cerramiento = gcpi_data[cerramiento_opcion][1]
+
 st.sidebar.info(f"**Factor GCpi asociado: ± {gc_pi_val}**")
 
+# --- MOTOR DE CÁLCULO ---
 def get_gcp(a, g1, g10):
     if a <= 1.0: return g1
     if a >= 10.0: return g10
@@ -204,29 +200,31 @@ exp_params = {'B': [7.0, 366.0], 'C': [9.5, 274.0], 'D': [11.5, 213.0]}
 alpha, zg = exp_params[cat_exp]
 kz = 2.01 * ((max(H_edif, 4.6) / zg)**(2/alpha))
 
-# Cálculo Presión Estática qh
 qh = (0.613 * kz * Kzt_val * Kd_val * (V**2) * imp_map[cat_imp]) * 0.10197
 
 # =================================================================
 # 5. DESPLIEGUE TÉCNICO DE RESULTADOS Y FORMULACIÓN
 # =================================================================
 
-# Ficha de Cerramiento Destacada
+# Ficha de Cerramiento Destacada (CORREGIDA)
 st.markdown(f"""
 <div class="classification-box">
     <strong>📋 Ficha Técnica de Cerramiento (NCh 432):</strong><br><br>
     <strong>Clasificación Seleccionada:</strong> {cerramiento_opcion}<br>
     <span style="font-size: 1.5em; color: #d9534f;"><strong>Factor de Presión Interna (GCpi): ± {gc_pi_val}</strong></span><br><br>
-    <strong>Nota Explicativa Normativa:</strong> {def_cerramiento}
+    <strong>Nota Explicativa Normativa:</strong> {nota_tecnica_cerramiento}
 </div>
 """, unsafe_allow_html=True)
 
-# Caja de Fórmulas y Ecuaciones
+# Caja de Fórmulas y Ecuaciones (LATEX CORREGIDO)
 st.markdown("### 📝 Ecuaciones de Diseño Aplicadas")
 st.latex(r"q_h = 0.613 \cdot K_z \cdot K_{zt} \cdot K_d \cdot V^2 \cdot I")
 st.latex(r"p = q_h \cdot [GC_p - GC_{pi}]")
 
 st.info(f"**Presión qh Calculada:** {qh:.2f} kgf/m²")
+
+# (Aquí continúa tu lógica de las 5 Zonas, Gráfico y Figuras...)
+
 
 # Coeficientes de las 5 Zonas (Fachada y Techo)
 z1 = get_gcp(area_ef, -1.0, -0.9) if theta <= 7 else get_gcp(area_ef, -0.9, -0.8)
