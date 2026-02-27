@@ -199,6 +199,19 @@ else:
     st.info("Suba el esquema F12.png para visualizar las zonas.")
 
 
-# CONTACTO
+# --- SECCIÓN DE CONTACTO Y CRÉDITOS ---
 st.markdown("---")
-st.markdown(f'<div style="text-align: right;"><a href="mailto:mriquelme@proyectosestructurales.com">mriquelme@proyectosestructurales.com</a></div>', unsafe_allow_html=True)
+st.markdown(f"""
+    <div style="display: flex; justify-content: space-between; align-items: center; color: #555; font-size: 0.9em;">
+        <div>
+            <strong>Desarrollado por:</strong> Mauricio Riquelme <br>
+            <em>Ingeniero Civil Estructural | PUC</em>
+        </div>
+        <div style="text-align: right;">
+            <strong>Contacto Proyectos Estructurales EIRL:</strong><br>
+            <a href="mailto:mriquelme@proyectosestructurales.com" style="text-decoration: none; color: #007BFF;">
+                mriquelme@proyectosestructurales.com
+            </a>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
