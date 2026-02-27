@@ -203,7 +203,38 @@ with st.sidebar.expander("ℹ️ Nota Explicativa: Exposición"):
     * **C:** Terrenos abiertos con obstrucciones dispersas < 9m. Incluye campos abiertos y terrenos agrícolas.
     * **D:** Áreas planas y sin obstrucciones frente a cuerpos de agua (Costa).
     """)
+
+# --- AYUDA TÉCNICA RIGUROSA: CATEGORÍA DE EXPOSICIÓN ---
+with st.sidebar.expander("ℹ️ Nota Explicativa: Exposición (B, C, D)"):
+    st.markdown("""
+    **Definiciones según NCh 432 (Capítulo 4):**
+    
+    * **Exposición B:** Áreas urbanas y suburbanas, áreas boscosas u otros terrenos con numerosas obstrucciones próximas del tamaño de viviendas unifamiliares o mayores.
+    * **Exposición C:** Terrenos abiertos con obstrucciones dispersas que tienen alturas generalmente menores a 9m. (Categoría por defecto).
+    * **Exposición D:** Áreas planas y sin obstrucciones frente a cuerpos de agua que se extienden al menos 1.6 km.
+    """)
+
 cat_exp = st.sidebar.selectbox("Categoría de Exposición", ['B', 'C', 'D'], index=0)
+
+# Diccionario de parámetros de rugosidad según Tabla 3 de la Norma
+# alpha: exponente de la ley de potencia | zg: altura nominal de la capa límite (m)
+exp_info = {
+    'B': [7.0, 366.0, "Urbano/Suburbano"],
+    'C': [9.5, 274.0, "Terreno Abierto"],
+    'D': [11.5, 213.0, "Costa/Agua"]
+}
+
+alpha_val = exp_info[cat_exp][0]
+zg_val = exp_info[cat_exp][1]
+desc_exp = exp_info[cat_exp][2]
+
+# Despliegue de los factores asociados debajo del selector
+st.sidebar.info(f"""
+**Parámetros de Rugosidad:**
+* Tipo: {desc_exp}
+* Exponente (α): {alpha_val}
+* Altura Gradiente (zg): {zg_val} m
+""")
 
 # =================================================================
 # 3. SIDEBAR: CATEGORÍA DE RIESGO Y PERIODOS DE RETORNO (CORREGIDO NCh 432:2025)
