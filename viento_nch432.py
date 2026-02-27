@@ -20,8 +20,8 @@ def render_logo(image_file):
         st.title("🏗️ Proyectos Estructurales EIRL")
 
 render_logo("Logo.png")
-st.subheader(" Determinación de Presiones de Viento según Norma NCh 432-2025")
 st.subheader("Análisis Integral de Presiones de Viento: Cubiertas y Fachadas")
+st.caption("Determinación de Presiones de Viento según Norma NCh 432-2025")
 
 # 2. SIDEBAR CON GUÍA TÉCNICA
 st.sidebar.header("⚙️ Parámetros de Diseño")
@@ -35,31 +35,30 @@ with st.sidebar.expander("🚩 Guía de Velocidad (V) y Mapas"):
     st.table(pd.DataFrame(tabla_v))
     
     if st.button("Desplegar Mapas (F2 a F5)"):
-        # Buscamos archivos con varias extensiones para evitar errores de carga
-        for img_name in ["F2.png", "F3.png", "F4.png",  "F5.png"]:
+        for img_name in ["F2.png", "F3.png", "F4.png", "F5.png"]:
             if os.path.exists(img_name):
                 st.image(img_name, caption=f"Norma NCh 432: {img_name}")
             else:
-                st.warning(f"Archivo {img_name} no encontrado en el repositorio.")
+                st.warning(f"Archivo {img_name} no encontrado.")
 
 V = st.sidebar.number_input("Velocidad básica V (m/s)", value=35.0)
 H_edif = st.sidebar.number_input("Altura edificio H (m)", value=12.0)
 theta = st.sidebar.slider("Inclinación Techo θ (°)", 0, 45, 10)
 
-# Geometría y regla de 1/3
+st.sidebar.subheader("📐 Geometría del Elemento")
 l_elem = st.sidebar.number_input("Largo elemento (m)", value=3.0)
 w_in = st.sidebar.number_input("Ancho trib. real (m)", value=1.0)
 w_trib = max(w_in, l_elem / 3)
 area_ef = l_elem * w_trib
 
-# --- GUÍA DE FACTOR TOPOGRÁFICO (Figuras explicativas) ---
+if w_in < (l_elem / 3):
+    st.sidebar.warning(f"⚠️ Ancho ajustado por norma a {w_trib:.2f}m (mín. 1/3 del largo)")
+
 with st.sidebar.expander("🏔️ Factor Topográfico (Kzt)"):
-    # Figuras explicativas añadidas
     if st.button("Ver Diagramas Topográficos"):
-        if os.path.exists("F7.png"):
-            st.image("F7.png", caption="Figura 3 - Diagramas de Velocidad en Relieves")
-        if os.path.exists("F6.png"):
-            st.image("F6.png", caption="Figura 3 - Ecuaciones y Parámetros Kzt")
+        for img in ["F7.png", "F6.png"]:
+            if os.path.exists(img):
+                st.image(img)
     
     metodo = st.radio("Método de cálculo", ["Manual", "Calculado (Escarpe/Colina)"])
     if metodo == "Manual":
@@ -71,7 +70,6 @@ with st.sidebar.expander("🏔️ Factor Topográfico (Kzt)"):
         x_d = st.number_input("Distancia horizontal x (m)", value=0.0)
         z_a = st.number_input("Altura vertical z (m)", value=10.0)
         
-        # Constantes según tipo (Figura 3 - Conclusión)
         if tipo_relieve == "Escarpe 2D": k1_b, gamma, mu = 0.75, 2.5, 1.5
         elif tipo_relieve == "Colina 2D": k1_b, gamma, mu = 1.05, 1.5, 1.5
         else: k1_b, gamma, mu = 0.95, 1.5, 4.0
@@ -89,21 +87,23 @@ def get_gcp(a, g1, g10):
     return g1 + (g10 - g1) * (np.log10(a) - np.log10(1.0))
 
 imp_map = {'I': 0.87, 'II': 1.0, 'III': 1.15, 'IV': 1.15}
+cat_imp = st.sidebar.selectbox("Categoría de Importancia", ['I', 'II', 'III', 'IV'], index=2)
 exp_params = {'B': [7.0, 366.0], 'C': [9.5, 274.0], 'D': [11.5, 213.0]}
 alpha, zg = exp_params[st.sidebar.selectbox("Exposición", ['B', 'C', 'D'], index=0)]
 
 kz = 2.01 * ((max(H_edif, 4.6) / zg)**(2/alpha))
-qh = (0.613 * kz * Kzt * 0.85 * (V**2) * imp_map['III']) * 0.10197
+# qh = 0.613 * Kz * Kzt * Kd * V^2 * I (Se usa Kd=0.85 estándar)
+qh = (0.613 * kz * Kzt_val * 0.85 * (V**2) * imp_map[cat_imp]) * 0.10197
 gc_pi = 0.18
 
-# Coeficientes de las 5 Zonas
+# Coeficientes de las 5 Zonas (Cargas externas)
 z1 = get_gcp(area_ef, -1.0, -0.9) if theta <= 7 else get_gcp(area_ef, -0.9, -0.8)
 z2 = get_gcp(area_ef, -1.8, -1.1) if theta <= 7 else get_gcp(area_ef, -1.3, -1.2)
 z3 = get_gcp(area_ef, -2.8, -1.1) if theta <= 7 else get_gcp(area_ef, -2.0, -1.2)
 z4 = get_gcp(area_ef, -1.1, -0.8)
 z5 = get_gcp(area_ef, -1.4, -1.1)
 
-# 4. RESULTADOS Y GRÁFICO INTEGRAL
+# 4. RESULTADOS Y GRÁFICO
 col1, col2 = st.columns([1, 1.2])
 
 with col1:
@@ -111,33 +111,35 @@ with col1:
     df = pd.DataFrame({
         "Ubicación": ["Techo Centro", "Techo Borde", "Techo Esquina", "Muro Interior", "Muro Esquina"],
         "Zona": ["Zona 1", "Zona 2", "Zona 3", "Zona 4", "Zona 5"],
+        "GCp (Interpolado)": [round(z, 3) for z in [z1, z2, z3, z4, z5]],
         "Presión Diseño (kgf/m²)": [round(qh*(z-gc_pi), 2) for z in [z1, z2, z3, z4, z5]]
     })
     st.table(df)
+    st.info(f"Dimensión 'a' (Esquina): {max(min(0.1*H_edif, 0.1*H_edif), 0.9):.2f} m")
 
 with col2:
-    # GRÁFICO DE LAS 5 ZONAS
     areas = np.logspace(0, 1, 50)
     fig, ax = plt.subplots(figsize=(7, 5))
     
-    # Curvas de Techumbre (Z1, Z2, Z3)
-    ax.plot(areas, [get_gcp(a, -1.0, -0.9) for a in areas], label='Z1 (Techo)', color='cyan', alpha=0.6)
-    ax.plot(areas, [get_gcp(a, -1.8, -1.1) for a in areas], label='Z2 (Techo)', color='blue', alpha=0.6)
-    ax.plot(areas, [get_gcp(a, -2.8, -1.1) for a in areas], label='Z3 (Techo Esquina)', color='navy', ls='--')
+    # Curvas dinámicas según inclinación theta
+    if theta <= 7:
+        ax.plot(areas, [get_gcp(a, -1.0, -0.9) for a in areas], label='Z1 (Techo)', color='cyan', alpha=0.6)
+        ax.plot(areas, [get_gcp(a, -1.8, -1.1) for a in areas], label='Z2 (Techo)', color='blue', alpha=0.6)
+        ax.plot(areas, [get_gcp(a, -2.8, -1.1) for a in areas], label='Z3 (Esquina Techo)', color='navy', ls='--')
+    else:
+        ax.plot(areas, [get_gcp(a, -0.9, -0.8) for a in areas], label='Z1 (Techo)', color='cyan', alpha=0.6)
+        ax.plot(areas, [get_gcp(a, -1.3, -1.2) for a in areas], label='Z2 (Techo)', color='blue', alpha=0.6)
+        ax.plot(areas, [get_gcp(a, -2.0, -1.2) for a in areas], label='Z3 (Esquina Techo)', color='navy', ls='--')
     
-    # Curvas de Fachada (Z4, Z5)
     ax.plot(areas, [get_gcp(a, -1.1, -0.8) for a in areas], label='Z4 (Muro)', color='green', lw=2)
-    ax.plot(areas, [get_gcp(a, -1.4, -1.1) for a in areas], label='Z5 (Muro Esquina)', color='red', lw=2)
+    ax.plot(areas, [get_gcp(a, -1.4, -1.1) for a in areas], label='Z5 (Esquina Muro)', color='red', lw=2)
     
-    # Marcar puntos
     for z_v in [z1, z2, z3, z4, z5]:
         ax.scatter([area_ef], [z_v], color='black', zorder=5)
 
-    ax.set_title("Comparativa de 5 Zonas (Log-Interpolación)")
-    ax.set_xlabel("Área (m²)"); ax.set_ylabel("GCp"); ax.grid(True, alpha=0.3); ax.legend(fontsize='small', loc='best')
+    ax.set_title("Comparativa de Sensibilidad: 5 Zonas")
+    ax.set_xlabel("Área Tributaria (m²)"); ax.set_ylabel("GCp"); ax.grid(True, alpha=0.3); ax.legend(fontsize='small', loc='best')
     st.pyplot(fig)
-
-
 
 # CONTACTO
 st.markdown("---")
