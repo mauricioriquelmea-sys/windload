@@ -114,6 +114,7 @@ if w_in < (l_elem / 3):
 with st.sidebar.expander("🏔️ Nota Explicativa: Factor Topográfico (Kzt)"):
     st.markdown("""
     **Criterios de Aplicación (Capítulo 5):**
+                
     El factor Kzt considera la aceleración del viento sobre colinas, crestas y escarpes aislados. Se aplica cuando el relieve sobresale significativamente de su entorno.
     
     * **K1:** Factor de forma del relieve.
