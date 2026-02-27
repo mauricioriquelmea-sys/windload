@@ -123,19 +123,48 @@ with st.sidebar.expander("🏔️ Nota Explicativa: Factor Topográfico (Kzt)"):
         for img in ["F7.png", "F6.png"]:
             if os.path.exists(img): st.image(img)
     
-    metodo = st.sidebar.radio("Cálculo de Kzt", ["Manual", "Calculado (Figura 3)"])
-    if metodo == "Manual":
-        Kzt_val = st.sidebar.number_input("Valor Kzt directo", 1.0, 3.0, 1.0)
-    else:
-        tipo_relieve = st.sidebar.selectbox("Forma del relieve", ["Escarpe 2D", "Colina 2D", "Colina 3D"])
-        Hc = st.sidebar.number_input("Altura colina H (m)", value=27.0)
-        Lhc = st.sidebar.number_input("Distancia Lh (m)", value=1743.7)
-        xdc = st.sidebar.number_input("Distancia x (m)", value=0.0)
-        zac = st.sidebar.number_input("Altura z s/suelo (m)", value=10.0)
-        k1b, gam, mu_v = (0.75, 2.5, 1.5) if tipo_relieve == "Escarpe 2D" else (1.05, 1.5, 1.5) if tipo_relieve == "Colina 2D" else (0.95, 1.5, 4.0)
-        k1_t, k2_t, k3_t = k1b*(Hc/Lhc), (1-abs(xdc)/(mu_v*Lhc)), math.exp(-gam*zac/Lhc)
-        Kzt_val = (1 + k1_t*k2_t*k3_t)**2
-        st.sidebar.info(f"Kzt Calculado: {Kzt_val:.3f}")
+with st.sidebar.expander("🏔️ Nota Explicativa: Factor Topográfico (Kzt)"):
+    st.markdown("""
+    **Criterios y Definiciones (Figura 3):**
+    
+    * **Lh (Distancia horizontal):** Es la distancia horizontal en barlovento desde la cresta hasta donde la diferencia de elevación es la mitad de la altura del relieve ($H_c/2$).
+    * **H_edif (Altura):** Se utiliza la altura máxima del edificio para determinar el factor de reducción $K_3$.
+    * **Ubicación Crítica:** El cálculo asume $x = 0$ (cima de la cresta o escarpe) para obtener el valor máximo de aceleración del flujo.
+    """)
+
+metodo = st.sidebar.radio("Cálculo de Kzt", ["Manual", "Calculado (Figura 3)"])
+
+if metodo == "Manual":
+    Kzt_val = st.sidebar.number_input("Valor Kzt directo", 1.0, 3.0, 1.0)
+else:
+    tipo_relieve = st.sidebar.selectbox("Forma del relieve", ["Escarpe 2D", "Colina 2D", "Colina 3D"])
+    
+    # Parámetros del relieve
+    Hc = st.sidebar.number_input("Altura del relieve Hc (m)", value=27.0, help="Elevación total del relieve sobre el terreno circundante.")
+    Lhc = st.sidebar.number_input("Lh (m)", value=100.0, help="Distancia horizontal a la mitad de la altura Hc.")
+    
+    # Asignación de constantes según tipo de relieve (NCh 432)
+    # k1_b: factor de forma, gam: decaimiento en altura (K3), mu: decaimiento horizontal (K2)
+    if tipo_relieve == "Escarpe 2D":
+        k1_b, gam, mu_v = 0.75, 2.5, 1.5
+    elif tipo_relieve == "Colina 2D":
+        k1_b, gam, mu_v = 1.05, 1.5, 1.5
+    else: # Colina 3D
+        k1_b, gam, mu_v = 0.95, 1.5, 4.0
+    
+    # Cálculo de Factores (Asumiendo x=0 y z=H_edif)
+    k1 = k1_b * (Hc / Lhc)
+    k2 = 1.0  # Para x = 0 (Cresta), K2 siempre es 1.0
+    k3 = math.exp(-gam * H_edif / Lhc) # z = H_edif (Altura máxima edificio)
+    
+    Kzt_val = (1 + k1 * k2 * k3)**2
+    
+    st.sidebar.info(f"""
+    **Resultados Locales:**
+    * K1: {k1:.3f}
+    * K3: {k3:.3f}
+    * **Kzt Calculado: {Kzt_val:.3f}**
+    """)
 
 # --- FACTORES NORMATIVOS ---
 st.sidebar.subheader("📋 Factores Normativos")
