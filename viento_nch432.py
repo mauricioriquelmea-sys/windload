@@ -22,7 +22,7 @@ def render_logo(image_file):
 
 render_logo("Logo.png")
 st.subheader(" Determinación de Presiones de Viento según Norma NCh 432-2025")
-st.subheader("Análisis Integral de Presiones de Viento: Cubiertas y Fachadas (NCh 432-2025)")
+st.subheader("Análisis Integral de Presiones de Viento: Cubiertas y Fachadas")
 
 # 2. ENTRADA DE DATOS (SIDEBAR)
 st.sidebar.header("⚙️ Parámetros de Diseño")
