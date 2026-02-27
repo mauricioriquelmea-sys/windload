@@ -7,9 +7,7 @@ import base64
 import os
 import math
 
-# 1. CONFIGURACIÓN CORPORATIVA
-st.set_page_config(page_title="NCh 432-2025 | Proyectos Estructurales", layout="wide")
-
+# 1. FUNCIÓN DE CONVERSIÓN (Se mantiene igual)
 def get_base64_image(image_path):
     """Convierte una imagen a base64 para embeberla en HTML"""
     if os.path.exists(image_path):
@@ -18,28 +16,36 @@ def get_base64_image(image_path):
             return base64.b64encode(data).decode()
     return None
 
-def render_header_images(logo_file, eolo_file):
-    """Renderiza el Logo Corporativo y Eolo al lado, centrados."""
-    logo_base64 = get_base64_image(logo_file)
-    eolo_base64 = get_base64_image(eolo_file)
+# 2. FUNCIÓN RENDERIZADO CORREGIDA (Ahora acepta 3 argumentos)
+def render_header_images(logo_file, ray_file, eolo_file):
+    """Renderiza el Logo Corporativo, Ray y Eolo en una sola fila centrada."""
+    logo_base_64 = get_base64_image(logo_file)
+    ray_base_64 = get_base64_image(ray_file)
+    eolo_base_64 = get_base64_image(eolo_file)
     
-    # Si ambas imágenes existen, creamos el layout centrado
-    if logo_base64 and eolo_base64:
-        st.markdown(f"""
-            <div style="display: flex; justify-content: center; align-items: center; gap: 50px; margin-bottom: 20px;">
-                <img src="data:image/png;base64,{logo_base64}" width="400">
-                <img src="data:image/png;base64,{eolo_base64}" width="150" style="opacity: 0.8;">
-            </div>
-            """, unsafe_allow_html=True)
-    elif logo_base64:
-        # Si solo está el logo, lo centramos normal
-        st.markdown(f'<div style="text-align: center;"><img src="data:image/png;base64,{logo_base64}" width="500"></div>', unsafe_allow_html=True)
+    # Creamos el layout con las imágenes que existan
+    html_content = '<div style="display: flex; justify-content: center; align-items: center; gap: 30px; margin-bottom: 30px; flex-wrap: wrap;">'
+    
+    if logo_base_64:
+        html_content += f'<img src="data:image/png;base64,{logo_base_64}" width="350">'
+    
+    if ray_base_64:
+        html_content += f'<img src="data:image/png;base64,{ray_base_64}" width="120" style="opacity: 0.9;">'
+        
+    if eolo_base_64:
+        html_content += f'<img src="data:image/png;base64,{eolo_base_64}" width="120" style="opacity: 0.8;">'
+    
+    html_content += '</div>'
+    
+    if logo_base_64 or ray_base_64 or eolo_base_64:
+        st.markdown(html_content, unsafe_allow_html=True)
     else:
         st.title("🏗️ Proyectos Estructurales EIRL")
 
-# REEMPLAZO DE LA FUNCIÓN ANTERIOR
-# Renderizamos el header con ambas imágenes
-render_header_images("Logo.png","Ray.png" ,"Eolo.png")
+# 3. LLAMADA CORRECTA A LA FUNCIÓN
+render_header_images("Logo.png", "Ray.png", "Eolo.png")
+
+# --- EL RESTO DE TU CÓDIGO (Subheaders, Motor, etc.) CONTINÚA AQUÍ ---
 
 st.subheader("Determinación de Presiones de Viento según Norma NCh 432-2025")
 st.caption("Análisis Integral de Presiones de Viento: Cubiertas y Fachadas")
