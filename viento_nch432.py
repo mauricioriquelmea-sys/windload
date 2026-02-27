@@ -132,8 +132,8 @@ with col2:
         ax.plot(areas, [get_gcp(a, -1.3, -1.2) for a in areas], label='Z2 (Techo)', color='blue', alpha=0.6)
         ax.plot(areas, [get_gcp(a, -2.0, -1.2) for a in areas], label='Z3 (Esquina Techo)', color='navy', ls='--')
     
-    ax.plot(areas, [get_gcp(a, -1.1, -0.8) for a in areas], label='Z4 (Muro)', color='green', lw=2)
-    ax.plot(areas, [get_gcp(a, -1.4, -1.1) for a in areas], label='Z5 (Esquina Muro)', color='red', lw=2)
+    ax.plot(areas, [get_gcp(a, -1.1, -0.8) for a in areas], label='Z4 (Fachada)', color='green', lw=2)
+    ax.plot(areas, [get_gcp(a, -1.4, -1.1) for a in areas], label='Z5 (Esquina Fachada)', color='red', lw=2)
     
     for z_v in [z1, z2, z3, z4, z5]:
         ax.scatter([area_ef], [z_v], color='black', zorder=5)
