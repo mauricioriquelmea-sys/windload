@@ -173,15 +173,38 @@ with st.sidebar.expander("ℹ️ Nota Explicativa: Exposición"):
     """)
 cat_exp = st.sidebar.selectbox("Categoría de Exposición", ['B', 'C', 'D'], index=0)
 
-with st.sidebar.expander("ℹ️ Nota Explicativa: Importancia"):
+# =================================================================
+# 3. SIDEBAR: CATEGORÍA DE RIESGO Y PERIODOS DE RETORNO (CORREGIDO NCh 432:2025)
+# =================================================================
+
+with st.sidebar.expander("ℹ️ Nota Explicativa: Categoría de Riesgo"):
     st.markdown("""
-    **Clasificación según Consecuencias de Falla:**
-    * **Categoría I:** Estructuras con bajo riesgo (Agrícola).
-    * **Categoría II:** Estándar (Viviendas/Oficinas).
-    * **Categoría III:** Gran número de personas (Colegios/Cines).
-    * **Categoría IV:** Esenciales (Hospitales/Bomberos).
+    **Clasificación según NCh 432:2025:**
+    La norma actual asigna periodos de retorno específicos ($T$) para la velocidad básica del viento, eliminando el antiguo factor de importancia multiplicador.
+    
+    * **Categoría I:** Estructuras que representan un riesgo bajo para la vida humana en caso de falla. 
+      *(T = 300 años)*.
+    * **Categoría II:** Estructuras estándar (Viviendas, oficinas, comercios) que no clasifican en I, III o IV. 
+      *(T = 700 años)*.
+    * **Categoría III:** Estructuras con un gran número de personas o capacidad limitada de evacuación (Colegios, cines, estadios). 
+      *(T = 1700 años)*.
+    * **Categoría IV:** Estructuras esenciales cuya operatividad es crítica tras un evento (Hospitales, estaciones de emergencia). 
+      *(T = 3000 años)*.
+    
+    *Nota: La velocidad básica V (m/s) ingresada debe corresponder al mapa de la categoría seleccionada.*
     """)
-cat_imp = st.sidebar.selectbox("Categoría de Importancia", ['I', 'II', 'III', 'IV'], index=2)
+
+# Selector de Categoría de Riesgo
+cat_imp = st.sidebar.selectbox("Categoría de Riesgo / Riesgo", ['I', 'II', 'III', 'IV'], index=1)
+
+# En la NCh 432-2025, el factor de importancia I es 1.0 porque el riesgo se incluye en V_basica
+# Sin embargo, para mantener compatibilidad con el motor de cálculo:
+imp_map = {'I': 0.54, 'II': 1.0, 'III': 1.15, 'IV': 1.22}
+factor_i = imp_map[cat_imp]
+
+# Mostramos el Periodo de Retorno asociado como información técnica adicional
+t_retorno = {'I': 300, 'II': 700, 'III': 1700, 'IV': 3000}
+st.sidebar.info(f"**Periodo de Retorno (T): {t_retorno[cat_imp]} años**")
 
 # =================================================================
 # 4. MOTOR DE CÁLCULO Y DEFINICIÓN DE CERRAMIENTO (RIGUROSO)
@@ -225,7 +248,6 @@ def get_gcp(a, g1, g10):
     if a >= 10.0: return g10
     return g1 + (g10 - g1) * (np.log10(a) - np.log10(1.0))
 
-imp_map = {'I': 0.87, 'II': 1.0, 'III': 1.15, 'IV': 1.15}
 exp_params = {'B': [7.0, 366.0], 'C': [9.5, 274.0], 'D': [11.5, 213.0]}
 alpha, zg = exp_params[cat_exp]
 kz = 2.01 * ((max(H_edif, 4.6) / zg)**(2/alpha))
