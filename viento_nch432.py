@@ -103,6 +103,9 @@ w_in = st.sidebar.number_input("Ancho tributario real (m)", 0.1, 50.0, 1.0)
 w_trib = max(w_in, l_elem / 3)
 area_ef = l_elem * w_trib
 
+st.sidebar.info(f"**{[[Area efectiva(Aef): {area_ef}**")
+
+
 if w_in < (l_elem / 3):
     st.sidebar.warning(f"⚠️ Ancho ajustado por norma a {w_trib:.2f}m (mín. 1/3 del largo)")
 
