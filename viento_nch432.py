@@ -140,13 +140,29 @@ st.sidebar.subheader("📋 Factores Normativos")
 with st.sidebar.expander("ℹ️ Nota Explicativa: Factor de Direccionalidad (Kd)"):
     st.markdown("""
     **Criterios de la Tabla 2 (NCh 432:2025):**
-    Este factor considera la reducida probabilidad de que el viento sople desde la dirección más crítica precisamente cuando ocurre la ráfaga de diseño.
+    Este factor compensa la reducida probabilidad de que el viento máximo sople precisamente desde la dirección más crítica para la orientación de la estructura y, simultáneamente, alcance la magnitud de diseño.
     
-    * **Edificios:** 0.85
-    * **Chimeneas, Tanques:** 0.90 - 0.95
-    * **Torres de Celosía:** 0.85
+    **Valores Normativos por Tipo de Estructura:**
+    * **Edificios:**
+        * Sistema Principal Resistente a la Fuerza del Viento (SPRFV): **0.85**
+        * Componentes y Revestimientos (C&R): **0.85**
+    * **Cubiertas Arqueadas:** **0.85**
+    * **Chimeneas, Tanques y Estructuras Similares:**
+        * Forma Cuadrada: **0.90**
+        * Forma Hexagonal: **0.95**
+        * Forma Redonda: **0.95**
+    * **Señales Sólidas:** **0.85**
+    * **Señales Abiertas y Estructuras de Enrejado:** **0.85**
+    * **Torres de Celosía:**
+        * Secciones Triangulares, Cuadradas o Rectangulares: **0.85**
+        * Otras Secciones: **0.95**
+    * **Cubiertas Aisladas (Techos Abiertos):** **0.85**
+    
+    *Nota: Este factor solo debe aplicarse cuando se utiliza en las combinaciones de carga de diseño especificadas por la norma.*
     """)
-Kd_val = st.sidebar.number_input("Factor de Direccionalidad Kd", 0.5, 1.0, 0.85, step=0.05)
+
+# Selector de Kd con rango de precisión
+Kd_val = st.sidebar.number_input("Factor de Direccionalidad Kd", 0.50, 1.00, 0.85, step=0.01)
 
 with st.sidebar.expander("ℹ️ Nota Explicativa: Exposición"):
     st.markdown("""
@@ -283,58 +299,67 @@ with col_plt:
     st.pyplot(fig)
 
 # =================================================================
-# 6. DISTRIBUCIÓN CINÉTICA DE PRESIONES EN ALTURA (CON BARLOVENTO Y SOTAVENTO)
+# 6. DISTRIBUCIÓN DE PRESIONES: BARLOVENTO Y SOTAVENTO (EXPANDIDO)
 # =================================================================
 st.divider()
-st.subheader("📊 Distribución de Presiones en Altura: Barlovento vs Sotavento")
+st.subheader("📊 Perfil de Presiones en Altura: Barlovento vs Sotavento")
 
-# Definición de alturas para el perfil (pasos de 0.5m para suavidad)
-alturas_perfil = np.linspace(0.1, H_edif, 40)
+# Generamos perfil de alturas cada 0.25m para máxima resolución
+alturas_perfil = np.linspace(0.1, H_edif, 50)
 p_barlovento_std = [] # Zona 4 Barlovento (Variable con Kz)
 p_barlovento_esq = [] # Zona 5 Barlovento (Variable con Kz)
-p_sotavento_net = []  # Sotavento (Constante con qh)
+p_sotavento_net = []  # Sotavento (Constante según qh)
+p_laterales_net = []  # Zonas laterales (Constante según qh)
 
-# Coeficiente de presión externa para Sotavento (Cp típico -0.5 para edificios)
-cp_sotavento = -0.5 
+# Coeficientes Cp normativos para el perfil global (Paredes)
+cp_sotavento = -0.50 # Succión constante en cara posterior
+cp_lateral = -0.70   # Succión constante en caras laterales
 
 for z_alt in alturas_perfil:
-    # Presión de velocidad variable según altura (Barlovento)
+    # Barlovento: qz varía con la altura (Kz)
     kz_z = 2.01 * ((max(z_alt, 4.6) / zg)**(2/alpha))
     qz = (0.613 * kz_z * Kzt_val * Kd_val * (V**2) * imp_map[cat_imp]) * 0.10197
     
-    # Presiones netas en Barlovento (Escalonadas)
+    # Presiones netas en Barlovento (C&R)
     p_barlovento_std.append(qz * (z4 - gc_pi_val))
     p_barlovento_esq.append(qz * (z5 - gc_pi_val))
     
-    # Presión neta en Sotavento (Constante basada en qh a la altura H)
+    # Sotavento y Laterales: Basados en qh a la altura H (Constantes)
     p_sotavento_net.append(qh * (cp_sotavento - gc_pi_val))
+    p_laterales_net.append(qh * (cp_lateral - gc_pi_val))
 
-# Renderizado del Gráfico de Perfil
+# Renderizado Gráfico
 fig_alt, ax_alt = plt.subplots(figsize=(12, 8))
 
-# Graficamos Barlovento (Lado Izquierdo o derecho según convención, aquí positivo/negativo)
+# Líneas de presión Barlovento
 ax_alt.plot(p_barlovento_std, alturas_perfil, label="Barlovento: Fachada Estándar (Z4)", color='green', lw=2)
 ax_alt.plot(p_barlovento_esq, alturas_perfil, label="Barlovento: Fachada Esquina (Z5)", color='red', lw=3)
-ax_alt.plot(p_sotavento_net, alturas_perfil, label="Sotavento: Succión Constante", color='blue', ls='-.', lw=2)
 
-# Sombreado para identificar áreas de carga
+# Líneas de succión Sotavento y Laterales
+ax_alt.plot(p_sotavento_net, alturas_perfil, label="Sotavento (Succión Constante)", color='blue', ls='-.', lw=2)
+ax_alt.plot(p_laterales_net, alturas_perfil, label="Paredes Laterales (Succión Constante)", color='purple', ls=':', lw=2)
+
+# Sombreados para visualización de magnitud
 ax_alt.fill_betweenx(alturas_perfil, p_barlovento_std, 0, color='green', alpha=0.1)
 ax_alt.fill_betweenx(alturas_perfil, p_sotavento_net, 0, color='blue', alpha=0.05)
 
-# Configuración de ejes para ingenieros
-ax_alt.axvline(0, color='black', lw=1.5) # Eje de referencia (pared)
-ax_alt.set_title(f"Perfil de Presión de Diseño NCh 432-2025 (V={V} m/s)", fontsize=14)
-ax_alt.set_ylabel("Altura sobre el terreno (m)", fontsize=12)
-ax_alt.set_xlabel("Presión Neta de Diseño (kgf/m²) [Succión < 0 | Presión > 0]", fontsize=12)
-ax_alt.grid(True, which="both", ls="--", alpha=0.5)
-ax_alt.legend(loc='lower left', frameon=True, shadow=True)
+# Configuración técnica del gráfico
+ax_alt.axvline(0, color='black', lw=1.5)
+ax_alt.set_title(f"Distribución Vertical de Presiones Netas (NCh 432) | V = {V} m/s", fontsize=14)
+ax_alt.set_ylabel("Altura sobre N.N.T. (m)", fontsize=12)
+ax_alt.set_xlabel("Presión Neta de Diseño (kgf/m²) [Succión < 0 | Empuje > 0]", fontsize=12)
+ax_alt.grid(True, which="both", ls="--", alpha=0.4)
+ax_alt.legend(loc='lower left', frameon=True, shadow=True, fontsize='medium')
 
 st.pyplot(fig_alt)
 
-st.info("""
-**Nota Técnica:** El perfil de **Barlovento** es variable ya que la velocidad del viento aumenta con la altura ($K_z$). 
-El perfil de **Sotavento** se representa como una succión constante basada en la presión de velocidad $q_h$ calculada a la altura media del techo, según el procedimiento para Componentes y Revestimientos.
-""")
+with st.expander("📑 Ver Nota Técnica de Distribución"):
+    st.markdown(f"""
+    **Análisis Cinematográfico del Viento:**
+    * **Barlovento (Lado Expuesto):** La presión es escalonada. El factor de exposición $K_z$ aumenta con la altura siguiendo una ley de potencia, lo que resulta en mayores cargas en los niveles superiores de la fachada.
+    * **Sotavento (Lado Protegido):** Según la norma, la succión es uniforme a lo largo de toda la altura y se calcula utilizando la presión de velocidad $q_h$ evaluada en el punto más alto del edificio ($H = {H_edif} m$).
+    * **Paredes Laterales:** Siguen un comportamiento similar al sotavento pero con coeficientes de succión ($C_p$) usualmente más severos.
+    """)
 
 
 # =================================================================
