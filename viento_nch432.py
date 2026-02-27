@@ -382,7 +382,7 @@ st.markdown(f"""
     <div style="display: flex; justify-content: space-between; align-items: center; color: #444; font-size: 0.95em;">
         <div>
             <strong>Desarrollado por:</strong> Mauricio Riquelme <br>
-            <em>Ingeniero Civil Estructural | PUC</em>
+            <em>Ingeniero Civil Estructural</em>
         </div>
         <div style="text-align: right;">
             <strong>Contacto Proyectos Estructurales EIRL:</strong><br>
