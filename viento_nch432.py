@@ -120,6 +120,6 @@ with col_c2:
     st.markdown(f"""
     <div style="text-align: right; font-size: 0.9em; color: #555;">
         <strong>Contacto Ingeniería:</strong><br>
-        <a href="mailto:mauricio.riquelme@proyectosestructurales.cl">mauricio.riquelme@proyectosestructurales.cl</a>
+        <a href="mailto:mriquelme@proyectosestructurales.com">mriquelme@proyectosestructurales.com</a>
     </div>
     """, unsafe_allow_html=True)
