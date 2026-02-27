@@ -20,8 +20,9 @@ def render_logo(image_file):
         st.title("🏗️ Proyectos Estructurales EIRL")
 
 render_logo("Logo.png")
-st.subheader("Análisis Integral de Presiones de Viento: Cubiertas y Fachadas")
-st.caption("Determinación de Presiones de Viento según Norma NCh 432-2025")
+st.subheader("Determinación de Presiones de Viento según Norma NCh 432-2025")
+st.caption("Análisis Integral de Presiones de Viento: Cubiertas y Fachadas")
+
 
 # 2. SIDEBAR CON GUÍA TÉCNICA
 st.sidebar.header("⚙️ Parámetros de Diseño")
@@ -107,7 +108,7 @@ z5 = get_gcp(area_ef, -1.4, -1.1)
 col1, col2 = st.columns([1, 1.2])
 
 with col1:
-    st.metric("Presión qh", f"{qh:.2f} kgf/m²")
+    st.metric("Presión por velocidadad de viento (qh)", f"{qh:.2f} kgf/m²")
     df = pd.DataFrame({
         "Ubicación": ["Techo Centro", "Techo Borde", "Techo Esquina", "Muro Interior", "Muro Esquina"],
         "Zona": ["Zona 1", "Zona 2", "Zona 3", "Zona 4", "Zona 5"],
