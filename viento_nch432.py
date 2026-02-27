@@ -104,11 +104,12 @@ z3 = get_gcp(area_ef, -2.8, -1.1) if theta <= 7 else get_gcp(area_ef, -2.0, -1.2
 z4 = get_gcp(area_ef, -1.1, -0.8)
 z5 = get_gcp(area_ef, -1.4, -1.1)
 
-# 4. RESULTADOS Y GRÁFICO
+
+# 4. RESULTADOS Y GRÁFICO (Sección anterior)
 col1, col2 = st.columns([1, 1.2])
 
 with col1:
-    st.metric("Presión por velocidadad de viento (qh)", f"{qh:.2f} kgf/m²")
+    st.metric("Presión qh", f"{qh:.2f} kgf/m²")
     df = pd.DataFrame({
         "Ubicación": ["Techo Centro", "Techo Borde", "Techo Esquina", "Muro Interior", "Muro Esquina"],
         "Zona": ["Zona 1", "Zona 2", "Zona 3", "Zona 4", "Zona 5"],
@@ -116,32 +117,32 @@ with col1:
         "Presión Diseño (kgf/m²)": [round(qh*(z-gc_pi), 2) for z in [z1, z2, z3, z4, z5]]
     })
     st.table(df)
-    st.info(f"Dimensión 'a' (Longitud de Zona de Viento Esquina (Zona 5)): {max(min(0.1*H_edif, 0.1*H_edif), 0.9):.2f} m")
 
 with col2:
-    areas = np.logspace(0, 1, 50)
-    fig, ax = plt.subplots(figsize=(7, 5))
-    
-    # Curvas dinámicas según inclinación theta
-    if theta <= 7:
-        ax.plot(areas, [get_gcp(a, -1.0, -0.9) for a in areas], label='Z1 (Techo)', color='cyan', alpha=0.6)
-        ax.plot(areas, [get_gcp(a, -1.8, -1.1) for a in areas], label='Z2 (Techo)', color='blue', alpha=0.6)
-        ax.plot(areas, [get_gcp(a, -2.8, -1.1) for a in areas], label='Z3 (Esquina Techo)', color='navy', ls='--')
-    else:
-        ax.plot(areas, [get_gcp(a, -0.9, -0.8) for a in areas], label='Z1 (Techo)', color='cyan', alpha=0.6)
-        ax.plot(areas, [get_gcp(a, -1.3, -1.2) for a in areas], label='Z2 (Techo)', color='blue', alpha=0.6)
-        ax.plot(areas, [get_gcp(a, -2.0, -1.2) for a in areas], label='Z3 (Esquina Techo)', color='navy', ls='--')
-    
-    ax.plot(areas, [get_gcp(a, -1.1, -0.8) for a in areas], label='Z4 (Fachada)', color='green', lw=2)
-    ax.plot(areas, [get_gcp(a, -1.4, -1.1) for a in areas], label='Z5 (Esquina Fachada)', color='red', lw=2)
-    
-    for z_v in [z1, z2, z3, z4, z5]:
-        ax.scatter([area_ef], [z_v], color='black', zorder=5)
-
-    ax.set_title("Comparativa de Sensibilidad: 5 Zonas")
-    ax.set_xlabel("Área Tributaria (m²)"); ax.set_ylabel("GCp"); ax.grid(True, alpha=0.3); ax.legend(fontsize='small', loc='best')
+    # (Mantener aquí el código del gráfico de Matplotlib que ya tenemos)
     st.pyplot(fig)
 
-# CONTACTO
+# --- NUEVA SECCIÓN: ESQUEMA DE IDENTIFICACIÓN DE ZONAS ---
+st.markdown("---")
+st.subheader("📍 Esquema de Identificación de Zonas (NCh 432)")
+
+# Intentamos cargar el esquema (puedes llamarlo Esquema_Zonas.png en tu repo)
+col_img1, col_img2 = st.columns([2, 1])
+
+with col_c1:
+    if os.path.exists("Esquema_Zonas.png"):
+        st.image("Esquema_Zonas.png", caption="Distribución de presiones en Componentes y Revestimientos (C&R)")
+    else:
+        # Si no tienes la imagen aún, mostramos un recordatorio visual del estándar
+        st.info("""
+        **Referencia de Ubicación:**
+        * **Zona 1, 2, 3:** Corresponden a la techumbre (succión hacia afuera).
+        * **Zona 4:** Área central de las fachadas (muros).
+        * **Zona 5:** Esquinas de las fachadas (donde el flujo de viento se desprende).
+        """)
+
+
+
+# CONTACTO (Final del archivo)
 st.markdown("---")
 st.markdown(f'<div style="text-align: right;"><a href="mailto:mriquelme@proyectosestructurales.com">mriquelme@proyectosestructurales.com</a></div>', unsafe_allow_html=True)
