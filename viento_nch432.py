@@ -127,15 +127,29 @@ with st.sidebar.expander("🏔️ Nota Explicativa: Factor Topográfico (Kzt)"):
 
 st.sidebar.subheader("📋 Factores Normativos")
 
-with st.sidebar.expander("ℹ️ Nota Explicativa: Factor Kd"):
+with st.sidebar.expander("ℹ️ Nota Explicativa: Factor de Direccionalidad (Kd)"):
     st.markdown("""
-    **Factor de Dirección (Tabla 2):**
-    Este factor compensa la probabilidad de que el viento sople desde la dirección más crítica precisamente cuando ocurre la ráfaga de diseño.
-    * **Edificios (C&R):** 0.85
-    * **Estructuras Redondeadas:** 0.90 - 0.95
+    **Criterios de la Tabla 2 (NCh 432:2025):**
+    Este factor se introduce para considerar la reducida probabilidad de que el viento máximo sople precisamente desde la dirección más crítica para la orientación de la estructura y, simultáneamente, alcance la magnitud de diseño.
+    
+    **Valores Normativos:**
+    * **Edificios:**
+        * Sistemas Principales Resistentes a la Fuerza del Viento: **0.85**
+        * Componentes y Revestimientos: **0.85**
+    * **Cubiertas Arqueadas:** **0.85**
+    * **Chimeneas, Tanques y Estructuras Similares:**
+        * Forma Cuadrada: **0.90**
+        * Forma Hexagonal: **0.95**
+        * Forma Redonda (Chimeneas y Tanques): **0.95**
+    * **Señales Sólidas:** **0.85**
+    * **Torres de Celosía:**
+        * Secciones Triangulares, Cuadradas o Rectangulares: **0.85**
+        * Otras Secciones: **0.95**
+    
+    *Nota: Este factor solo debe aplicarse cuando se utiliza en combinación con los factores de carga especificados en las combinaciones de diseño.*
     """)
-Kd_val = st.sidebar.number_input("Factor de Dirección Kd", 0.5, 1.0, 0.85, step=0.05)
-
+# Selector numérico con el rigor de la norma
+Kd_val = st.sidebar.number_input("Factor de Direccionalidad Kd", 0.5, 1.0, 0.85, step=0.05)
 with st.sidebar.expander("ℹ️ Nota Explicativa: Exposición"):
     st.markdown("""
     **Rugosidad del Terreno (Capítulo 4):**
