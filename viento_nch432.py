@@ -51,7 +51,7 @@ with st.sidebar.expander("🚩 Guía de Velocidad (V) y Mapas"):
     st.write("**Zonificación Tabla 1:**")
     tabla_v = {"Zona": ["I-A", "II-B", "III-B", "IV-B", "V", "VI"], "V (m/s)": [27, 35, 35, 40, 40, 44]}
     st.table(pd.DataFrame(tabla_v))
-    if st.button("Desplegar Mapas (F2 a F8)"):
+    if st.button("Desplegar Mapas de Chile"):
         for img_name in ["F2.png", "F3.png", "F4.png", "F5.png"]:
             if os.path.exists(img_name): st.image(img_name, caption=f"Norma NCh 432: {img_name}")
 
