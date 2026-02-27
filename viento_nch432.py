@@ -39,7 +39,7 @@ def render_header_images(logo_file, eolo_file):
 
 # REEMPLAZO DE LA FUNCIÓN ANTERIOR
 # Renderizamos el header con ambas imágenes
-render_header_images("Logo.png", "Eolo.png")
+render_header_images("Logo.png","Ray.png" ,"Eolo.png")
 
 st.subheader("Determinación de Presiones de Viento según Norma NCh 432-2025")
 st.caption("Análisis Integral de Presiones de Viento: Cubiertas y Fachadas")
