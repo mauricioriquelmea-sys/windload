@@ -147,9 +147,11 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # Coeficientes de las 5 Zonas
+# Techo Z1, Z2, Z3
 z1 = get_gcp(area_ef, -1.0, -0.9) if theta <= 7 else get_gcp(area_ef, -0.9, -0.8)
 z2 = get_gcp(area_ef, -1.8, -1.1) if theta <= 7 else get_gcp(area_ef, -1.3, -1.2)
 z3 = get_gcp(area_ef, -2.8, -1.1) if theta <= 7 else get_gcp(area_ef, -2.0, -1.2)
+# Fachada Z4, Z5
 z4, z5 = get_gcp(area_ef, -1.1, -0.8), get_gcp(area_ef, -1.4, -1.1)
 
 # 5. RESULTADOS Y GRÁFICO INTEGRAL (ZONAS 1-5)
@@ -157,7 +159,7 @@ col1, col2 = st.columns([1, 1.3])
 with col1:
     st.subheader("📊 Resumen de Presiones de Diseño")
     df_res = pd.DataFrame({
-        "Zona": ["Z1 (Techo Centro)", "Z2 (Techo Borde)", "Z3 (Techo Esquina)", "Z4 (Muro Estándar)", "Z5 (Muro Esquina)"],
+        "Zona": ["Z1 (Techo Centro)", "Z2 (Techo Borde)", "Z3 (Techo Esquina)", "Z4 (Fachada Estándar)", "Z5 (Fachada Esquina)"],
         "GCp (Ext)": [round(z, 3) for z in [z1, z2, z3, z4, z5]],
         "GCpi (Int)": [gc_pi_val] * 5,
         "Presión Neta (kgf/m²)": [round(qh*(z - gc_pi_val), 2) for z in [z1, z2, z3, z4, z5]]
@@ -168,30 +170,40 @@ with col1:
 with col2:
     areas = np.logspace(0, 1, 50)
     fig, ax = plt.subplots(figsize=(10, 6))
-    # Curvas de Techo
+    
+    # CURVAS DE TECHO
+    z1_c = [get_gcp(a, -1.0, -0.9) if theta <= 7 else get_gcp(a, -0.9, -0.8) for a in areas]
+    z2_c = [get_gcp(a, -1.8, -1.1) if theta <= 7 else get_gcp(a, -1.3, -1.2) for a in areas]
     z3_c = [get_gcp(a, -2.8, -1.1) if theta <= 7 else get_gcp(a, -2.0, -1.2) for a in areas]
-    ax.plot(areas, z3_c, label='Z3 (Esquina Techo)', color='navy', ls='--')
-    # Curvas de Fachada
+    
+    ax.plot(areas, z1_c, label='Z1 (Techo Centro)', color='cyan', alpha=0.7)
+    ax.plot(areas, z2_c, label='Z2 (Techo Borde)', color='blue', alpha=0.7)
+    ax.plot(areas, z3_c, label='Z3 (Techo Esquina)', color='navy', ls='--')
+    
+    # CURVAS DE FACHADA
     ax.plot(areas, [get_gcp(a, -1.1, -0.8) for a in areas], label='Z4 (Fachada Estándar)', color='green', lw=2.5)
     ax.plot(areas, [get_gcp(a, -1.4, -1.1) for a in areas], label='Z5 (Fachada Esquina)', color='red', lw=2.5)
     
+    # PUNTOS DE CONTROL (Tu elemento)
     for z_v in [z1, z2, z3, z4, z5]:
         ax.scatter([area_ef], [z_v], color='black', zorder=10)
 
-    ax.set_title("Comparativa de 5 Zonas: Sensibilidad por Área Tributaria")
+    ax.set_title("Comparativa de las 5 Zonas (NCh 432): Techo y Fachada")
     ax.set_xlabel("Área Tributaria (m²)"); ax.set_ylabel("Coeficiente GCp")
-    ax.grid(True, which="both", alpha=0.3); ax.legend(fontsize='small')
+    ax.grid(True, which="both", alpha=0.3); ax.legend(fontsize='small', loc='best')
     st.pyplot(fig)
+
+
 
 # --- SECCIÓN: ESQUEMAS NORMATIVOS ---
 st.markdown("---")
 col_img1, col_img2 = st.columns(2)
 with col_img1:
     st.subheader("📍 Identificación de Zonas (F8)")
-    if os.path.exists("F8.png"): st.image("F8.png", caption="Zonificación de presiones externas")
+    if os.path.exists("F8.png"): st.image("F8.png", caption="Zonificación de presiones externas (Techo y Fachada)")
 with col_img2:
     st.subheader("📍 Esquema Isométrico (F12)")
-    if os.path.exists("F12.png"): st.image("F12.png", caption="Distribución isométrica de cargas")
+    if os.path.exists("F12.png"): st.image("F12.png", caption="Distribución isométrica de cargas en Fachada")
 
 # CRÉDITOS FINALES
 st.markdown("---")
