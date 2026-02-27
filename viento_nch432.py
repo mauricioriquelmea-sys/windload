@@ -192,7 +192,7 @@ else:
 
     # --- SECCIÓN: ESQUEMA ---
 st.markdown("---")
-st.subheader("📍 Esquema isommétrico de distribución de presiones de viento")
+st.subheader("📍 Esquema Isométrico de Distribución de Presiones de Viento")
 if os.path.exists("F12.png"):
     st.image("F12.png", caption="Figura 12 - Distribución de Presiones en Forma Isométrica")
 else:
