@@ -454,41 +454,65 @@ with col_plt:
     st.pyplot(fig)
 
 # =================================================================
-# 6. DISTRIBUCIÓN DE PRESIONES NETAS: SINCRONIZADO
+# 6. DISTRIBUCIÓN DE PRESIONES NETAS: SINCRONIZADO Y COMPLETO
 # =================================================================
 st.divider()
 st.subheader("📊 Perfil de Presiones Netas (NCh 432): Barlovento vs Sotavento")
 
+# Coeficiente típico para paredes laterales (Succión constante)
+cp_lateral = -0.80 
+
 alturas_perfil = np.linspace(0.1, H_edif, 50)
-p_barlo_4, p_barlo_5, p_sota_4, p_sota_5, p_lat = [], [], [], [], []
+p_barlo_4, p_barlo_5 = [], [] 
+p_sota_4, p_sota_5 = [], [] 
+p_laterales = [] 
 
 for z_alt in alturas_perfil:
+    # Presión de velocidad variable (qz) según Kz
     kz_z = 2.01 * ((max(z_alt, 4.6) / zg)**(2/alpha))
     qz = (0.613 * kz_z * Kzt_val * Kd_val * (V**2) * imp_map[cat_imp]) * 0.10197
     
-    # BARLOVENTO (+) - Usando las nuevas variables del Punto 5
+    # BARLOVENTO (+) - Empuje variable con la altura
     p_barlo_4.append(qz * (z4_pos + gc_pi_val)) 
     p_barlo_5.append(qz * (z5_pos + gc_pi_val))
     
-    # SOTAVENTO (-) - Usando las nuevas variables del Punto 5
+    # SOTAVENTO (-) - Succión constante basada en qh (altura de techo)
     p_sota_4.append(qh * (z4_neg - gc_pi_val)) 
     p_sota_5.append(qh * (z5_neg - gc_pi_val))
-    p_lat.append(qh * (-0.80 - gc_pi_val))
+    
+    # LATERALES (-) - Succión constante basada en qh
+    p_laterales.append(qh * (cp_lateral - gc_pi_val))
 
-# Renderizado Gráfico
+# Renderizado Gráfico Profesional
 fig_alt, ax_alt = plt.subplots(figsize=(12, 8))
-ax_alt.plot(p_barlo_4, alturas_perfil, label="Barlovento Z4 (Empuje)", color='darkgreen', lw=2)
-ax_alt.plot(p_barlo_5, alturas_perfil, label="Barlovento Z5 (Empuje)", color='limegreen', lw=2, ls='--')
-ax_alt.plot(p_sota_4, alturas_perfil, label="Sotavento Z4 (Succión)", color='blue', lw=2)
-ax_alt.plot(p_sota_5, alturas_perfil, label="Sotavento Z5 (Succión)", color='darkblue', lw=3)
-ax_alt.axvline(0, color='black', lw=2)
 
-# Ajuste de escala para centrar el cero
-max_p = max(max(p_barlo_5), abs(min(p_sota_5))) * 1.2
+# Graficar Barlovento (Derecha)
+ax_alt.plot(p_barlo_4, alturas_perfil, label="Barlovento Z4 (Empuje Std)", color='darkgreen', lw=2)
+ax_alt.plot(p_barlo_5, alturas_perfil, label="Barlovento Z5 (Empuje Esq)", color='limegreen', lw=2, ls='--')
+
+# Graficar Sotavento (Izquierda)
+ax_alt.plot(p_sota_4, alturas_perfil, label="Sotavento Z4 (Succión Std)", color='blue', lw=2)
+ax_alt.plot(p_sota_5, alturas_perfil, label="Sotavento Z5 (Succión Esq)", color='darkblue', lw=3)
+
+# RESTAURADO: Graficar Laterales (Izquierda)
+ax_alt.plot(p_laterales, alturas_perfil, label="Paredes Laterales (Succión)", color='purple', ls=':', lw=2)
+
+# Configuración del Eje y Estética
+ax_alt.axvline(0, color='black', lw=2) 
+ax_alt.set_title(f"Perfil de Presiones Netas de Diseño | V = {V} m/s", fontsize=14)
+ax_alt.set_xlabel("Presión Neta [kgf/m²] <-- SUCCIÓN (Sotavento/Lat) | EMPUJE (Barlovento) -->", fontsize=12)
+ax_alt.set_ylabel("Altura sobre N.N.T. [m]", fontsize=12)
+
+# Ajuste dinámico de límites
+max_p = max(max(p_barlo_5), abs(min(p_sota_5)), abs(min(p_laterales))) * 1.2
 ax_alt.set_xlim(-max_p, max_p)
-ax_alt.set_xlabel("Presión Neta [kgf/m²] <-- SUCCIÓN | EMPUJE -->")
-ax_alt.grid(True, ls='--', alpha=0.5); ax_alt.legend(loc='upper right', fontsize='small')
+
+ax_alt.grid(True, which='both', ls='--', alpha=0.5)
+ax_alt.legend(loc='upper right', fontsize='small', frameon=True)
+
 st.pyplot(fig_alt)
+
+st.write("📌 **Interpretación**: Las curvas a la izquierda representan succiones. La curva punteada morada indica la presión en las caras laterales, la cual se mantiene uniforme en toda la altura según NCh 432.")
 
 # =================================================================
 # 7. ESQUEMAS NORMATIVOS Y REFERENCIAS FINALES
