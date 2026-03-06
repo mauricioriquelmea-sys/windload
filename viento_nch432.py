@@ -378,7 +378,7 @@ st.sidebar.markdown(f"""
 """, unsafe_allow_html=True)
 
 # =================================================================
-# 5. DESPLIEGUE TÉCNICO DE RESULTADOS Y FORMULACIÓN (AMPLIADO)
+# 5. DESPLIEGUE TÉCNICO DE RESULTADOS Y FORMULACIÓN (CORREGIDO)
 # =================================================================
 
 # Ficha de Cerramiento Destacada
@@ -398,23 +398,21 @@ st.latex(r"p = q \cdot [GC_p - GC_{pi}]")
 
 st.info(f"**Presión de Velocidad Calculada (qh):** {qh:.2f} kgf/m²")
 
-# --- CÁLCULO DE COEFICIENTES GCp (7 CONDICIONES) ---
+# --- CÁLCULO DE COEFICIENTES GCp (DEFINICIÓN DE VARIABLES PARA PUNTO 6) ---
 # Techo (Solo Succión)
 z1 = get_gcp(area_ef, -1.0, -0.9) if theta <= 7 else get_gcp(area_ef, -0.9, -0.8)
 z2 = get_gcp(area_ef, -1.8, -1.1) if theta <= 7 else get_gcp(area_ef, -1.3, -1.2)
 z3 = get_gcp(area_ef, -2.8, -1.1) if theta <= 7 else get_gcp(area_ef, -2.0, -1.2)
 
-# Paredes (Barlovento + Sotavento)
+# Paredes (Nombres específicos para evitar NameError)
 z4_neg, z5_neg = get_gcp(area_ef, -1.1, -0.8), get_gcp(area_ef, -1.4, -1.1)
-z4_pos, z5_pos = get_gcp(area_ef, 1.0, 0.7), get_gcp(area_ef, 1.0, 0.8) # Valores típicos de empuje
+z4_pos, z5_pos = get_gcp(area_ef, 1.0, 0.7), get_gcp(area_ef, 1.0, 0.8)
 
 # Tabulación de Resultados
 col_res, col_plt = st.columns([1, 1.3])
 
 with col_res:
     st.markdown("**Resumen de Presiones Netas por Zona**")
-    
-    # Construcción de tabla técnica completa
     zonas = [
         "Z1 (Techo Centro - Succión)", "Z2 (Techo Borde - Succión)", "Z3 (Techo Esq - Succión)",
         "Z4 (Pared Std - Barlovento)", "Z4 (Pared Std - Sotavento)",
@@ -422,14 +420,12 @@ with col_res:
     ]
     gcp_vals = [z1, z2, z3, z4_pos, z4_neg, z5_pos, z5_neg]
     
-    # Cálculo de Presión Neta p = q * (GCp - GCpi)
-    # Para el caso crítico, restamos GCpi si GCp es negativo, o sumamos si es positivo
     p_netas = []
     for g in gcp_vals:
         if g >= 0:
-            p_netas.append(round(qh * (g + gc_pi_val), 2)) # Empuje + Presión interna
+            p_netas.append(round(qh * (g + gc_pi_val), 2))
         else:
-            p_netas.append(round(qh * (g - gc_pi_val), 2)) # Succión + Presión interna
+            p_netas.append(round(qh * (g - gc_pi_val), 2))
 
     df_res = pd.DataFrame({
         "Zona de Análisis": zonas,
@@ -438,111 +434,61 @@ with col_res:
         "Presión Neta (kgf/m²)": p_netas
     })
     st.table(df_res)
-    st.warning("⚠️ Nota: (+) Empuje hacia adentro | (-) Succión hacia afuera.")
 
 with col_plt:
-    areas = np.logspace(0, 1.5, 100) # De 1m2 a 32m2
+    areas = np.logspace(0, 1.5, 100)
     fig, ax = plt.subplots(figsize=(10, 7))
+    # Curvas de Succión
+    ax.plot(areas, [get_gcp(a, -1.1, -0.8) for a in areas], label='Z4 Sotavento (S)', color='green', lw=2)
+    ax.plot(areas, [get_gcp(a, -1.4, -1.1) for a in areas], label='Z5 Sotavento (S)', color='red', lw=2)
+    # Curvas de Empuje
+    ax.plot(areas, [get_gcp(a, 1.0, 0.7) for a in areas], label='Z4 Barlovento (E)', color='green', lw=2, ls=':')
+    ax.plot(areas, [get_gcp(a, 1.0, 0.8) for a in areas], label='Z5 Barlovento (E)', color='red', lw=2, ls=':')
     
-    # --- CURVAS DE SUCCIÓN (NEGATIVAS) ---
-    color_succion = 'blue'
-    if theta <= 7:
-        ax.plot(areas, [get_gcp(a, -1.0, -0.9) for a in areas], label='Z1 Techo (S)', color='cyan', alpha=0.3)
-        ax.plot(areas, [get_gcp(a, -1.8, -1.1) for a in areas], label='Z2 Techo (S)', color='blue', alpha=0.3)
-        ax.plot(areas, [get_gcp(a, -2.8, -1.1) for a in areas], label='Z3 Techo Esq (S)', color='navy', ls='--')
-    else:
-        ax.plot(areas, [get_gcp(a, -0.9, -0.8) for a in areas], label='Z1 Techo (S)', color='cyan', alpha=0.3)
-        ax.plot(areas, [get_gcp(a, -1.3, -1.2) for a in areas], label='Z2 Techo (S)', color='blue', alpha=0.3)
-        ax.plot(areas, [get_gcp(a, -2.0, -1.2) for a in areas], label='Z3 Techo Esq (S)', color='navy', ls='--')
-    
-    ax.plot(areas, [get_gcp(a, -1.1, -0.8) for a in areas], label='Z4 Pared (Sotavento - Succión)', color='green', lw=2)
-    ax.plot(areas, [get_gcp(a, -1.4, -1.1) for a in areas], label='Z5 Pared Esq (Sotavento - Succión)', color='red', lw=2)
-
-    # --- CURVAS DE EMPUJE (POSITIVAS) ---
-    ax.plot(areas, [get_gcp(a, 1.0, 0.7) for a in areas], label='Z4 Pared (Barlovento - Empuje)', color='green', lw=2, ls=':')
-    ax.plot(areas, [get_gcp(a, 1.0, 0.8) for a in areas], label='Z5 Pared Esq (Barlovento - Empuje)', color='red', lw=2, ls=':')
-    
-    # Puntos de diseño actuales
     for z_v in gcp_vals:
         ax.scatter([area_ef], [z_v], color='black', s=40, zorder=10)
 
-    ax.set_title("Variación de GCp (C&C) - NCh 432")
-    ax.set_xlabel("Área Tributaria (m²)")
-    ax.set_ylabel("Coeficiente GCp")
-    ax.axhline(0, color='black', lw=1)
-    ax.grid(True, which="both", alpha=0.3)
+    ax.set_xlabel("Área Tributaria (m²)"); ax.set_ylabel("Coeficiente GCp")
+    ax.axhline(0, color='black', lw=1); ax.grid(True, which="both", alpha=0.3)
     ax.legend(fontsize='x-small', loc='center left', bbox_to_anchor=(1, 0.5))
     st.pyplot(fig)
 
 # =================================================================
-# 6. DISTRIBUCIÓN DE PRESIONES NETAS: BARLOVENTO (+) VS SOTAVENTO (-)
+# 6. DISTRIBUCIÓN DE PRESIONES NETAS: SINCRONIZADO
 # =================================================================
 st.divider()
 st.subheader("📊 Perfil de Presiones Netas (NCh 432): Barlovento vs Sotavento")
 
-# Coeficientes de succión típicos (Sotavento suele ser más severo en esquinas)
-cp_sota_std = -0.60  # Zona 4 Sotavento
-cp_sota_esq = -1.10  # Zona 5 Sotavento (Esquinas)
-cp_lat_std  = -0.80  # Paredes laterales
-
 alturas_perfil = np.linspace(0.1, H_edif, 50)
-p_barlo_4 = [] 
-p_barlo_5 = [] 
-p_sota_4  = [] 
-p_sota_5  = [] 
-p_lat     = [] 
+p_barlo_4, p_barlo_5, p_sota_4, p_sota_5, p_lat = [], [], [], [], []
 
 for z_alt in alturas_perfil:
-    # Presión de velocidad variable con la altura (Kz)
     kz_z = 2.01 * ((max(z_alt, 4.6) / zg)**(2/alpha))
     qz = (0.613 * kz_z * Kzt_val * Kd_val * (V**2) * imp_map[cat_imp]) * 0.10197
     
-    # BARLOVENTO (Positivo / Empuje)
-    # Usamos qz porque la presión varía con la altura
-    p_barlo_4.append(qz * (z4 - gc_pi_val)) 
-    p_barlo_5.append(qz * (z5 - gc_pi_val))
+    # BARLOVENTO (+) - Usando las nuevas variables del Punto 5
+    p_barlo_4.append(qz * (z4_pos + gc_pi_val)) 
+    p_barlo_5.append(qz * (z5_pos + gc_pi_val))
     
-    # SOTAVENTO Y LATERALES (Negativo / Succión)
-    # Usamos qh (presión a altura de techo) porque la succión es constante según norma
-    p_sota_4.append(qh * (cp_sota_std + gc_pi_val)) # Succión + Presión Interna negativa
-    p_sota_5.append(qh * (cp_sota_esq + gc_pi_val)) 
-    p_lat.append(qh * (cp_lat_std + gc_pi_val))
+    # SOTAVENTO (-) - Usando las nuevas variables del Punto 5
+    p_sota_4.append(qh * (z4_neg - gc_pi_val)) 
+    p_sota_5.append(qh * (z5_neg - gc_pi_val))
+    p_lat.append(qh * (-0.80 - gc_pi_val))
 
-# Renderizado Gráfico Profesional
+# Renderizado Gráfico
 fig_alt, ax_alt = plt.subplots(figsize=(12, 8))
+ax_alt.plot(p_barlo_4, alturas_perfil, label="Barlovento Z4 (Empuje)", color='darkgreen', lw=2)
+ax_alt.plot(p_barlo_5, alturas_perfil, label="Barlovento Z5 (Empuje)", color='limegreen', lw=2, ls='--')
+ax_alt.plot(p_sota_4, alturas_perfil, label="Sotavento Z4 (Succión)", color='blue', lw=2)
+ax_alt.plot(p_sota_5, alturas_perfil, label="Sotavento Z5 (Succión)", color='darkblue', lw=3)
+ax_alt.axvline(0, color='black', lw=2)
 
-# Graficar Barlovento (Derecha)
-ax_alt.plot(p_barlo_4, alturas_perfil, label="Barlovento: Zona 4 (Empuje Std)", color='darkgreen', lw=2)
-ax_alt.plot(p_barlo_5, alturas_perfil, label="Barlovento: Zona 5 (Empuje Esq)", color='limegreen', lw=2, ls='--')
-
-# Graficar Sotavento (Izquierda - Succión)
-ax_alt.plot(p_sota_4, alturas_perfil, label="Sotavento: Zona 4 (Succión Std)", color='blue', lw=2)
-ax_alt.plot(p_sota_5, alturas_perfil, label="Sotavento: Zona 5 (Succión Esq)", color='darkblue', lw=3)
-
-# Graficar Laterales (Izquierda)
-ax_alt.plot(p_lat, alturas_perfil, label="Paredes Laterales (Succión)", color='purple', ls=':', lw=2)
-
-# Sombreados de áreas de influencia
-ax_alt.fill_betweenx(alturas_perfil, p_barlo_4, 0, color='green', alpha=0.05)
-ax_alt.fill_betweenx(alturas_perfil, p_sota_5, 0, color='blue', alpha=0.05)
-
-# Configuración del Eje y Estética
-ax_alt.axvline(0, color='black', lw=2) # El "Cero" divide Empuje de Succión
-ax_alt.set_title(f"Perfil de Presiones Netas de Diseño | V = {V} m/s", fontsize=14)
-ax_alt.set_xlabel("Presión Neta [kgf/m²]  <-- SUCCIÓN (Sotavento) | EMPUJE (Barlovento) -->", fontsize=12)
-ax_alt.set_ylabel("Altura sobre N.N.T. [m]", fontsize=12)
-
-# Ajuste dinámico de límites para que el gráfico siempre esté centrado en el cero
+# Ajuste de escala para centrar el cero
 max_p = max(max(p_barlo_5), abs(min(p_sota_5))) * 1.2
 ax_alt.set_xlim(-max_p, max_p)
-
-ax_alt.grid(True, which='both', ls='--', alpha=0.5)
-ax_alt.legend(loc='upper right', fontsize='small', frameon=True)
-
+ax_alt.set_xlabel("Presión Neta [kgf/m²] <-- SUCCIÓN | EMPUJE -->")
+ax_alt.grid(True, ls='--', alpha=0.5); ax_alt.legend(loc='upper right', fontsize='small')
 st.pyplot(fig_alt)
-
-st.write("📌 **Interpretación**: Las curvas a la izquierda del eje central representan succión (Sotavento), donde la Zona 5 (azul oscuro) muestra la carga crítica de arrancamiento para anclajes en esquinas.")
-
 
 # =================================================================
 # 7. ESQUEMAS NORMATIVOS Y REFERENCIAS FINALES
