@@ -378,33 +378,6 @@ def generar_pdf_viento():
     pdf.set_font("Arial", 'I', 8)
     pdf.cell(0, 10, "Memoria generada por AccuraWall Port - Structural Lab | Mauricio Riquelme", align='C')
     return pdf.output()
-with col_res:
-    st.markdown("**Resumen de Presiones Netas por Zona**")
-    
-    # Agregamos Pared Lateral a la lista
-    zonas = [
-        "Z1 (Techo Centro - Succión)", "Z2 (Techo Borde - Succión)", "Z3 (Techo Esq - Succión)",
-        "Z4 (Pared Std - Barlovento)", "Z4 (Pared Std - Sotavento)",
-        "Z5 (Pared Esq - Barlovento)", "Z5 (Pared Esq - Sotavento)",
-        "Paredes Laterales (Succión)" # <-- NUEVA FILA
-    ]
-    # CP lateral estándar -0.80
-    gcp_vals = [z1, z2, z3, z4_pos, z4_neg, z5_pos, z5_neg, -0.80]
-    
-    p_netas = []
-    for g in gcp_vals:
-        if g >= 0:
-            p_netas.append(round(qh * (g + gc_pi_val), 2))
-        else:
-            p_netas.append(round(qh * (g - gc_pi_val), 2))
-
-    df_res = pd.DataFrame({
-        "Zona de Análisis": zonas,
-        "GCp (Externo)": [round(z, 3) for z in gcp_vals],
-        "GCpi (Interno)": [gc_pi_val] * 8,
-        "Presión Neta (kgf/m²)": p_netas
-    })
-    st.table(df_res)
 
 
 # =================================================================
@@ -443,12 +416,16 @@ col_res, col_plt = st.columns([1, 1.3])
 
 with col_res:
     st.markdown("**Resumen de Presiones Netas por Zona**")
+    
+    # Agregamos Pared Lateral a la lista
     zonas = [
         "Z1 (Techo Centro - Succión)", "Z2 (Techo Borde - Succión)", "Z3 (Techo Esq - Succión)",
         "Z4 (Pared Std - Barlovento)", "Z4 (Pared Std - Sotavento)",
-        "Z5 (Pared Esq - Barlovento)", "Z5 (Pared Esq - Sotavento)"
+        "Z5 (Pared Esq - Barlovento)", "Z5 (Pared Esq - Sotavento)",
+        "Paredes Laterales (Succión)" # <-- NUEVA FILA
     ]
-    gcp_vals = [z1, z2, z3, z4_pos, z4_neg, z5_pos, z5_neg]
+    # CP lateral estándar -0.80
+    gcp_vals = [z1, z2, z3, z4_pos, z4_neg, z5_pos, z5_neg, -0.80]
     
     p_netas = []
     for g in gcp_vals:
@@ -460,7 +437,7 @@ with col_res:
     df_res = pd.DataFrame({
         "Zona de Análisis": zonas,
         "GCp (Externo)": [round(z, 3) for z in gcp_vals],
-        "GCpi (Interno)": [gc_pi_val] * 7,
+        "GCpi (Interno)": [gc_pi_val] * 8,
         "Presión Neta (kgf/m²)": p_netas
     })
     st.table(df_res)
