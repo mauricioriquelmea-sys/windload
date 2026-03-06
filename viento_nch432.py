@@ -318,8 +318,9 @@ kz = 2.01 * ((max(H_edif, 4.6) / zg)**(2/alpha))
 # Cálculo Presión Estática qh
 qh = (0.613 * kz * Kzt_val * Kd_val * (V**2) * imp_map[cat_imp]) * 0.10197
 
+
 # =================================================================
-# 5. GENERADOR DE PDF PROFESIONAL (NCh 432:2025)
+# 5. GENERADOR DE PDF PROFESIONAL (NCh 432:2025) - ACTUALIZADO
 # =================================================================
 def generar_pdf_viento():
     pdf = FPDF()
@@ -331,51 +332,80 @@ def generar_pdf_viento():
     pdf.cell(0, 10, "Memoria de Calculo: Viento NCh 432-2025", ln=True, align='C')
     pdf.set_font("Arial", 'I', 10)
     pdf.cell(0, 7, "Proyectos Estructurales | Structural Lab", ln=True, align='C')
-    pdf.ln(15)
+    pdf.ln(10)
 
+    # 1. PARÁMETROS
     pdf.set_fill_color(240, 240, 240)
     pdf.set_font("Arial", 'B', 11)
-    pdf.cell(0, 10, " 1. PARAMETROS GLOBALES DE DISENO", ln=True, fill=True)
+    pdf.cell(0, 10, " 1. PARAMETROS GLOBALES Y EXPOSICION", ln=True, fill=True)
     pdf.set_font("Arial", '', 10)
-    pdf.cell(0, 8, f" Velocidad V: {V} m/s | Altura H: {H_edif} m | Techo: {theta} deg", ln=True)
-    pdf.cell(0, 8, f" Exposicion: {cat_exp} | Riesgo: {cat_imp} (I={factor_i}) | Cerramiento: {cerramiento_opcion}", ln=True)
-    pdf.ln(5)
+    pdf.cell(0, 7, f" Velocidad V: {V} m/s | Altura H: {H_edif} m | Pendiente Techo: {theta} deg", ln=True)
+    pdf.cell(0, 7, f" Exposicion: {cat_exp} | Riesgo: {cat_imp} (I={factor_i}) | Cerramiento: {cerramiento_opcion}", ln=True)
+    pdf.cell(0, 7, f" Factor de Presion Interna (GCpi): +/- {gc_pi_val}", ln=True)
+    pdf.ln(3)
 
+    # 2. RESULTADOS DE PRESION NETA POR ZONA (DESGLOSE ELITE)
     pdf.set_font("Arial", 'B', 11)
-    pdf.cell(0, 10, " 2. FACTORES Y PRESION DE VELOCIDAD", ln=True, fill=True)
-    pdf.set_font("Arial", '', 10)
-    pdf.cell(95, 8, f" Kz (Exposicion): {kz:.3f}", border=0)
-    pdf.cell(95, 8, f" Kzt (Topografico): {Kzt_val:.3f}", ln=True)
-    pdf.cell(95, 8, f" Kd (Direccionalidad): {Kd_val:.3f}", border=0)
-    pdf.set_font("Arial", 'B', 10)
-    pdf.cell(95, 8, f" qh (Presion Base): {qh:.2f} kgf/m2", ln=True)
-    pdf.ln(5)
-
-    pdf.set_font("Arial", 'B', 11)
-    pdf.cell(0, 10, " 3. RESULTADOS DE PRESION NETA POR ZONA", ln=True, fill=True)
-    pdf.set_font("Arial", '', 10)
-    pdf.cell(0, 8, f" Z1 Techo Centro: {qh*(get_gcp(area_ef, -1.0, -0.9) if theta <= 7 else get_gcp(area_ef, -0.9, -0.8)) - gc_pi_val:.2f} kgf/m2", ln=True)
-    pdf.cell(0, 8, f" Z4 Fachada: {qh*(get_gcp(area_ef, -1.1, -0.8) - gc_pi_val):.2f} kgf/m2", ln=True)
-    pdf.cell(0, 8, f" Z5 Fachada Esquina: {qh*(get_gcp(area_ef, -1.4, -1.1) - gc_pi_val):.2f} kgf/m2", ln=True)
+    pdf.cell(0, 10, " 2. RESUMEN DE PRESIONES NETAS DE DISENO (p)", ln=True, fill=True)
+    pdf.set_font("Arial", 'B', 9)
+    # Encabezados de tabla en PDF
+    pdf.cell(80, 8, " Zona de Analisis", 1, 0, 'C', True)
+    pdf.cell(35, 8, " GCp Externo", 1, 0, 'C', True)
+    pdf.cell(45, 8, " Presion Neta [kgf/m2]", 1, 1, 'C', True)
     
+    pdf.set_font("Arial", '', 9)
+    # Lógica de impresión de filas (Sincronizado con Punto 5)
+    filas_pdf = [
+        ("Z1 Techo (Centro)", z1, qh*(z1 - gc_pi_val)),
+        ("Z4 Pared (Barlovento - Empuje)", z4_pos, qh*(z4_pos + gc_pi_val)),
+        ("Z4 Pared (Sotavento - Succion)", z4_neg, qh*(z4_neg - gc_pi_val)),
+        ("Z5 Pared (Barlovento - Empuje)", z5_pos, qh*(z5_pos + gc_pi_val)),
+        ("Z5 Pared (Sotavento - Succion)", z5_neg, qh*(z5_neg - gc_pi_val)),
+        ("Paredes Laterales (Succion)", -0.80, qh*(-0.80 - gc_pi_val))
+    ]
+
+    for nombre, g_val, p_val in filas_pdf:
+        pdf.cell(80, 7, f" {nombre}", 1)
+        pdf.cell(35, 7, f" {g_val:.3f}", 1, 0, 'C')
+        pdf.cell(45, 7, f" {p_val:.2f}", 1, 1, 'C')
+
+    # 3. NOTA SOBRE LATERALES
+    pdf.ln(5)
+    pdf.set_font("Arial", 'I', 9)
+    pdf.multi_cell(0, 5, "Nota: Las presiones laterales se calculan como succiones constantes sobre toda la altura del edificio basadas en la presion qh. Los valores positivos indican empuje hacia la estructura y los negativos succion hacia el exterior.")
+
     pdf.set_y(-25)
     pdf.set_font("Arial", 'I', 8)
-    pdf.cell(0, 10, "Memoria generada por AccuraWall Port - Mauricio Riquelme", align='C')
+    pdf.cell(0, 10, "Memoria generada por AccuraWall Port - Structural Lab | Mauricio Riquelme", align='C')
     return pdf.output()
+with col_res:
+    st.markdown("**Resumen de Presiones Netas por Zona**")
+    
+    # Agregamos Pared Lateral a la lista
+    zonas = [
+        "Z1 (Techo Centro - Succión)", "Z2 (Techo Borde - Succión)", "Z3 (Techo Esq - Succión)",
+        "Z4 (Pared Std - Barlovento)", "Z4 (Pared Std - Sotavento)",
+        "Z5 (Pared Esq - Barlovento)", "Z5 (Pared Esq - Sotavento)",
+        "Paredes Laterales (Succión)" # <-- NUEVA FILA
+    ]
+    # CP lateral estándar -0.80
+    gcp_vals = [z1, z2, z3, z4_pos, z4_neg, z5_pos, z5_neg, -0.80]
+    
+    p_netas = []
+    for g in gcp_vals:
+        if g >= 0:
+            p_netas.append(round(qh * (g + gc_pi_val), 2))
+        else:
+            p_netas.append(round(qh * (g - gc_pi_val), 2))
 
-# --- BOTÓN DE DESCARGA PDF ---
-st.sidebar.markdown("---")
-pdf_bytes = generar_pdf_viento()
-b64 = base64.b64encode(pdf_bytes).decode()
-st.sidebar.markdown(f"""
-    <div style="text-align: center;">
-        <a href="data:application/pdf;base64,{b64}" download="Memoria_Viento_NCh432.pdf" 
-           style="background-color: #0056b3; color: white; padding: 12px 20px; text-decoration: none; 
-           border-radius: 5px; font-weight: bold; display: block;">
-           📥 DESCARGAR MEMORIA PDF
-        </a>
-    </div>
-""", unsafe_allow_html=True)
+    df_res = pd.DataFrame({
+        "Zona de Análisis": zonas,
+        "GCp (Externo)": [round(z, 3) for z in gcp_vals],
+        "GCpi (Interno)": [gc_pi_val] * 8,
+        "Presión Neta (kgf/m²)": p_netas
+    })
+    st.table(df_res)
+
 
 # =================================================================
 # 5. DESPLIEGUE TÉCNICO DE RESULTADOS Y FORMULACIÓN (CORREGIDO)
