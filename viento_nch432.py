@@ -446,7 +446,7 @@ with col_plt:
 # 6. DISTRIBUCIÓN DE PRESIONES: BARLOVENTO Y SOTAVENTO (EXPANDIDO)
 # =================================================================
 st.divider()
-st.subheader("📊 Perfil de Presiones en Altura: Barlovento vs Sotavento")
+st.subheader("📊 Perfil de Presiones en Altura en Fachada: Barlovento vs Sotavento")
 
 # Generamos perfil de alturas cada 0.25m para máxima resolución
 alturas_perfil = np.linspace(0.1, H_edif, 50)
@@ -480,7 +480,7 @@ ax_alt.plot(p_barlovento_std, alturas_perfil, label="Barlovento: Fachada Estánd
 ax_alt.plot(p_barlovento_esq, alturas_perfil, label="Barlovento: Fachada Esquina (Z5)", color='red', lw=3)
 
 # Líneas de succión Sotavento y Laterales
-ax_alt.plot(p_sotavento_net, alturas_perfil, label="Sotavento (Succión Constante)", color='blue', ls='-.', lw=2)
+ax_alt.plot(p_sotavento_net, alturas_perfil, label="Sotavento (Succión Constante, Z5)", color='blue', ls='-.', lw=2)
 ax_alt.plot(p_laterales_net, alturas_perfil, label="Paredes Laterales (Succión Constante)", color='purple', ls=':', lw=2)
 
 # Sombreados para visualización de magnitud
