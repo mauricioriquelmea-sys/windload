@@ -410,7 +410,7 @@ col_res, col_plt = st.columns([1, 1.3])
 with col_res:
     st.markdown("**Resumen de Presiones Netas por Zona**")
     df_res = pd.DataFrame({
-        "Zona de Análisis": ["Z1 (Techo Centro)", "Z2 (Techo Borde)", "Z3 (Techo Esquina)", "Z4 (Fachada Estándar)", "Z5 (Fachada Esquina)"],
+        "Zona de Análisis": ["Z1 (Techo Centro)", "Z2 (Techo Borde)", "Z3 (Techo Esquina)", "Z4 (Sotavento, Fachada Estándar)", "Z5 (Sotavento, Fachada Esquina)"],
         "GCp (Externo)": [round(z, 3) for z in [z1, z2, z3, z4, z5]],
         "GCpi (Interno)": [gc_pi_val] * 5,
         "Presión Neta (kgf/m²)": [round(qh*(z - gc_pi_val), 2) for z in [z1, z2, z3, z4, z5]]
@@ -432,8 +432,8 @@ with col_plt:
         ax.plot(areas, [get_gcp(a, -1.3, -1.2) for a in areas], label='Z2 (Techo)', color='blue', alpha=0.5)
         ax.plot(areas, [get_gcp(a, -2.0, -1.2) for a in areas], label='Z3 (Techo Esq.)', color='navy', ls='--')
     
-    ax.plot(areas, [get_gcp(a, -1.1, -0.8) for a in areas], label='Z4 (Fachada)', color='green', lw=2.5)
-    ax.plot(areas, [get_gcp(a, -1.4, -1.1) for a in areas], label='Z5 (Fachada Esq.)', color='red', lw=2.5)
+    ax.plot(areas, [get_gcp(a, -1.1, -0.8) for a in areas], label='Z4 (Sotavento, Fachada)', color='green', lw=2.5)
+    ax.plot(areas, [get_gcp(a, -1.4, -1.1) for a in areas], label='Z5 (Sotavento, Fachada Esq.)', color='red', lw=2.5)
     
     for z_v in [z1, z2, z3, z4, z5]:
         ax.scatter([area_ef], [z_v], color='black', s=50, zorder=10)
