@@ -417,8 +417,8 @@ with col_res:
     # Construcción de tabla técnica completa
     zonas = [
         "Z1 (Techo Centro - Succión)", "Z2 (Techo Borde - Succión)", "Z3 (Techo Esq - Succión)",
-        "Z4 (Pared Std - Empuje)", "Z4 (Pared Std - Succión)",
-        "Z5 (Pared Esq - Empuje)", "Z5 (Pared Esq - Succión)"
+        "Z4 (Pared Std - Barlovento)", "Z4 (Pared Std - Sotavento)",
+        "Z5 (Pared Esq - Barlovento)", "Z5 (Pared Esq - Sotavento)"
     ]
     gcp_vals = [z1, z2, z3, z4_pos, z4_neg, z5_pos, z5_neg]
     
@@ -455,12 +455,12 @@ with col_plt:
         ax.plot(areas, [get_gcp(a, -1.3, -1.2) for a in areas], label='Z2 Techo (S)', color='blue', alpha=0.3)
         ax.plot(areas, [get_gcp(a, -2.0, -1.2) for a in areas], label='Z3 Techo Esq (S)', color='navy', ls='--')
     
-    ax.plot(areas, [get_gcp(a, -1.1, -0.8) for a in areas], label='Z4 Pared (Succión)', color='green', lw=2)
-    ax.plot(areas, [get_gcp(a, -1.4, -1.1) for a in areas], label='Z5 Pared Esq (Succión)', color='red', lw=2)
+    ax.plot(areas, [get_gcp(a, -1.1, -0.8) for a in areas], label='Z4 Pared (Sotavento - Succión)', color='green', lw=2)
+    ax.plot(areas, [get_gcp(a, -1.4, -1.1) for a in areas], label='Z5 Pared Esq (Sotavento - Succión)', color='red', lw=2)
 
     # --- CURVAS DE EMPUJE (POSITIVAS) ---
-    ax.plot(areas, [get_gcp(a, 1.0, 0.7) for a in areas], label='Z4 Pared (Empuje)', color='green', lw=2, ls=':')
-    ax.plot(areas, [get_gcp(a, 1.0, 0.8) for a in areas], label='Z5 Pared Esq (Empuje)', color='red', lw=2, ls=':')
+    ax.plot(areas, [get_gcp(a, 1.0, 0.7) for a in areas], label='Z4 Pared (Barlovento - Empuje)', color='green', lw=2, ls=':')
+    ax.plot(areas, [get_gcp(a, 1.0, 0.8) for a in areas], label='Z5 Pared Esq (Barlovento - Empuje)', color='red', lw=2, ls=':')
     
     # Puntos de diseño actuales
     for z_v in gcp_vals:
