@@ -498,7 +498,7 @@ ax_alt.plot(p_sota_5, alturas_perfil, label="Sotavento Z5 (Succión Esq)", color
 ax_alt.plot(p_laterales, alturas_perfil, label="Paredes Laterales (Succión)", color='purple', ls=':', lw=2)
 
 # Configuración del Eje y Estética
-ax_alt.axvline(0, color='black', lw=2) 
+ax_alt.axvline(0, color='red', lw=2) 
 ax_alt.set_title(f"Perfil de Presiones Netas de Diseño | V = {V} m/s", fontsize=14)
 ax_alt.set_xlabel("Presión Neta [kgf/m²] <-- SUCCIÓN (Sotavento/Lat) | EMPUJE (Barlovento) -->", fontsize=12)
 ax_alt.set_ylabel("Altura sobre N.N.T. [m]", fontsize=12)
