@@ -8,6 +8,20 @@ import os
 import math
 from fpdf import FPDF
 
+# Tabla 4 NCh 432:2025 - Factor de elevación del suelo Ke en función de ze [m]
+KE_TABLA_ZE = [0, 300, 600, 900, 1200, 1500, 1800]
+KE_TABLA_KE = [1.00, 0.96, 0.93, 0.90, 0.87, 0.84, 0.81]
+
+def ke_formula(ze):
+    """Nota 2, Tabla 4: Ke = exp(-0,000119 ze)."""
+    return math.exp(-0.000119 * ze)
+
+def ke_tabla4(ze):
+    """Interpolación lineal en la Tabla 4; fuera de 0-1800 m se aplica la Nota 2 (fórmula)."""
+    if ze < 0 or ze > 1800:
+        return ke_formula(ze)
+    return float(np.interp(ze, KE_TABLA_ZE, KE_TABLA_KE))
+
 # =================================================================
 # 1. CONFIGURACIÓN CORPORATIVA Y CONTROL DE UI (FULL WIDTH)
 # =================================================================
@@ -207,8 +221,31 @@ with st.sidebar.expander("ℹ️ Nota Explicativa: Factor de Direccionalidad (Kd
 
 # Selector de Kd con rango de precisión
 Kd_val = st.sidebar.number_input("Factor de Direccionalidad Kd", 0.50, 1.00, 0.85, step=0.01)
-# Factor de elevación del terreno Ke (Ec. 2, NCh 432:2025, 5.8.2). 1.0 por defecto.
-Ke_val = st.sidebar.number_input("Factor de elevación del terreno Ke", 0.50, 1.00, 1.00, step=0.01)
+
+# --- FACTOR DE ELEVACIÓN DEL SUELO Ke (NCh 432:2025, 5.7 - Tabla 4) ---
+st.sidebar.subheader("⛰️ Factor de Elevación del Suelo (Ke)")
+with st.sidebar.expander("ℹ️ Nota Explicativa: Factor Ke (5.7)"):
+    st.markdown(r"""
+    **NCh 432:2025, 5.7:** Ke ajusta la densidad del aire según la elevación del suelo sobre el
+    nivel del mar, $z_e$. Se determina con la Tabla 4; se permite tomar **Ke = 1,00** para todas las
+    elevaciones (Nota 1, conservador).
+
+    **Nota 2:** fuera de la tabla (z_e < 0 o z_e > 1 800 m), o como alternativa para todas las
+    elevaciones, se interpola o se usa $K_e = e^{-0{,}000119\,z_e}$.
+    """)
+    st.table(pd.DataFrame({"ze (m)": KE_TABLA_ZE, "Ke": [f"{k:.2f}" for k in KE_TABLA_KE]}).set_index("ze (m)"))
+
+ke_metodo = st.sidebar.radio("Determinación de Ke",
+                             ["Conservador (Ke = 1,00)", "Tabla 4 (interpolación)", "Fórmula (Nota 2)"])
+if ke_metodo.startswith("Conservador"):
+    z_e = None
+    Ke_val = 1.0
+else:
+    z_e = st.sidebar.number_input("Elevación del suelo sobre el nivel del mar ze (m)", -100.0, 5000.0, 550.0, step=10.0)
+    Ke_val = ke_tabla4(z_e) if ke_metodo.startswith("Tabla") else ke_formula(z_e)
+st.sidebar.info(f"**Ke = {Ke_val:.3f}**" + ("" if z_e is None else f"  (ze = {z_e:.0f} m)"))
+if ke_metodo.startswith("Tabla") and z_e is not None and (z_e < 0 or z_e > 1800):
+    st.sidebar.warning("ze fuera del rango de la Tabla 4: se aplica la fórmula de la Nota 2.")
 
 with st.sidebar.expander("ℹ️ Nota Explicativa: Exposición"):
     st.markdown("""
@@ -357,7 +394,7 @@ st.markdown(f"""
 st.markdown("### 📝 Ecuaciones de Diseño Aplicadas")
 st.latex(r"q_z = 0.613 \cdot I \cdot K_z \cdot K_{zt} \cdot K_e \cdot V^2 \qquad \text{(Ec. 2)}")
 st.latex(r"p = q_h \cdot K_d \cdot \left[(GC_p) - (GC_{pi})\right] \qquad \text{(Ec. 19)}")
-st.caption(f"Kd = {Kd_val:.2f} se aplica a la presión neta (externa e interna), no a la presión de velocidad. Ke = {Ke_val:.2f}.")
+st.caption(f"Kd = {Kd_val:.2f} se aplica a la presión neta (externa e interna), no a la presión de velocidad. Ke = {Ke_val:.3f} ({ke_metodo}).")
 
 st.info(f"**Presión de Velocidad Calculada (qh):** {qh:.2f} kgf/m²")
 
@@ -671,7 +708,7 @@ def generar_pdf_viento():
         ["Altura gradiente zg", f"{_n(zg, 0)} m"],
         ["Coef. de exposición Kz (z = h)", _n(kz, 3)],
         ["Factor topográfico Kzt", _n(Kzt_val, 3)],
-        ["Factor de elevación del terreno Ke", _n(Ke_val, 2)],
+        ["Factor de elevación del suelo Ke (5.7)", _n(Ke_val, 3)],
         ["Factor de direccionalidad Kd", _n(Kd_val, 2)],
         ["Factor de importancia I", _n(factor_i, 2)],
         ["Coef. de presión interna GCpi", f"± {_n(gc_pi_val, 2)}"],
@@ -683,10 +720,28 @@ def generar_pdf_viento():
     else:
         pdf.p(f"Kzt ingresado directamente por el usuario: {_n(Kzt_val, 3)}.")
 
+    # Ke - factor de elevación del suelo (5.7, Tabla 4)
+    if ke_metodo.startswith("Conservador"):
+        pdf.p("Ke se toma igual a 1,00 para todas las elevaciones, de manera conservadora "
+              "(NCh 432:2025, 5.7 y Tabla 4, Nota 1).")
+    elif ke_metodo.startswith("Tabla") and 0 <= z_e <= 1800:
+        pdf.p(f"Ke se determina por interpolación lineal en la Tabla 4 de NCh 432:2025 (5.7) para una "
+              f"elevación del suelo ze = {_n(z_e, 0)} m sobre el nivel del mar: Ke = {_n(Ke_val, 3)}.")
+        pdf.tabla(["ze [m]"] + [_n(z, 0) for z in KE_TABLA_ZE],
+                  [["Ke"] + [_n(k, 2) for k in KE_TABLA_KE]],
+                  [26] + [22] * len(KE_TABLA_ZE), ["L"] + ["C"] * len(KE_TABLA_ZE))
+    else:
+        motivo = ("(ze fuera del rango de la Tabla 4) " if ke_metodo.startswith("Tabla") else "")
+        pdf.p(f"Ke se determina con la fórmula de la Nota 2 de la Tabla 4 de NCh 432:2025 {motivo}"
+              f"para ze = {_n(z_e, 0)} m sobre el nivel del mar:")
+        pdf.eq(f"Ke = e^(-0,000119 · ze) = e^(-0,000119 · {_n(z_e, 0)}) = {_n(Ke_val, 3)}")
+
     # --- 5. Formulación ---
     pdf.h2("5. Formulación")
     pdf.p("Coeficiente de exposición (z >= 4,6 m):")
     pdf.eq("Kz = 2,01 · (z / zg)^(2/alfa)")
+    pdf.p("Factor de elevación del suelo (5.7, Tabla 4, Nota 2):")
+    pdf.eq("Ke = e^(-0,000119 · ze)   ;   Ke = 1,00 permitido para toda elevación")
     pdf.p("Presión de velocidad, Ec. (2):")
     pdf.eq("qz = 0,613 · I · Kz · Kzt · Ke · V²   [N/m²]")
     pdf.p("Presión de diseño para C&R, Ec. (19), con GCpi en el signo más desfavorable:")
@@ -696,7 +751,7 @@ def generar_pdf_viento():
 
     # --- 6. qh ---
     pdf.h2("6. Presión de velocidad a la altura media del techo")
-    pdf.eq(f"qh = 0,613 · {_n(factor_i, 2)} · {_n(kz, 3)} · {_n(Kzt_val, 3)} · {_n(Ke_val, 2)} · {_n(V, 1)}²")
+    pdf.eq(f"qh = 0,613 · {_n(factor_i, 2)} · {_n(kz, 3)} · {_n(Kzt_val, 3)} · {_n(Ke_val, 3)} · {_n(V, 1)}²")
     pdf.eq(f"qh = {_n(qh / 0.10197, 1)} N/m² = {_n(qh, 2)} kgf/m²")
 
     # --- 7. Presiones netas ---
