@@ -149,9 +149,12 @@ with st.sidebar.expander("🏔️ Nota Explicativa: Factor Topográfico (Kzt)"):
     * **K2:** Factor de reducción por distancia horizontal.
     * **K3:** Factor de reducción por altura sobre el suelo.
     
+    * **Hc:** Altura del relieve respecto del terreno a barlovento (desnivel, **no** cota sobre el nivel del mar).
     * **Lh (Distancia horizontal):** Es la distancia horizontal en barlovento desde la cresta hasta donde la diferencia de elevación es la mitad de la altura del relieve ($H_c/2$).
-    * **H_edif (Altura):** Se utiliza la altura máxima del edificio para determinar el factor de reducción $K_3$.
-    * **Ubicación Crítica:** El cálculo asume $x = 0$ (cima de la cresta o escarpe) para obtener el valor máximo de aceleración del flujo.
+    * **x:** Distancia horizontal de la cresta al edificio (barlovento o sotavento). Con $x = 0$ se obtiene el máximo.
+    * **K1** depende de la forma del relieve **y de la categoría de exposición**; si $H_c/L_h > 0{,}5$ se usa $H_c/L_h = 0{,}5$ para K1 y $L_h = 2H_c$ para K2 y K3.
+    * **K3** se evalúa a cada altura $z$: $K_{zt}$ varía con la altura del edificio.
+    * Constantes según ASCE/SEI 7-22, Fig. 26.8-1, base de NCh 432:2025. **Verificar contra la figura de factores topográficos de NCh 432:2025.**
     """)
 
     if st.button("Ver Diagramas de Relieve"):
@@ -163,41 +166,21 @@ metodo = st.sidebar.radio("Cálculo de Kzt", ["Manual", "Calculado"])
 if metodo == "Manual":
     Kzt_val = st.sidebar.number_input("Valor Kzt directo", 1.0, 3.0, 1.0)
 else:
-    tipo_relieve = st.sidebar.selectbox("Forma del relieve", ["Escarpe 2D", "Colina 2D", "Colina 3D"])
+    tipo_relieve = st.sidebar.selectbox("Forma del relieve", ["Escarpe 2D", "Cresta 2D", "Colina 3D"])
     
     # Parámetros del relieve
-    Hc = st.sidebar.number_input("Altura del relieve Hc (m)", value=27.0, help="Elevación total del relieve sobre el terreno circundante.")
-    Lhc = st.sidebar.number_input("Lh (m)", value=100.0, help="Distancia horizontal a la mitad de la altura Hc.")
-    
-    # Asignación de constantes según tipo de relieve (NCh 432)
-    # k1_b: factor de forma, gam: decaimiento en altura (K3), mu: decaimiento horizontal (K2)
-    if tipo_relieve == "Escarpe 2D":
-        k1_b, gam, mu_v = 0.75, 2.5, 1.5
-    elif tipo_relieve == "Colina 2D":
-        k1_b, gam, mu_v = 1.05, 1.5, 1.5
-    else: # Colina 3D
-        k1_b, gam, mu_v = 0.95, 1.5, 4.0
-    
-    # Cálculo de Factores (Asumiendo x=0 y z=H_edif)
-    k1 = k1_b * (Hc / Lhc)
-    k2 = 1.0  # Para x = 0 (Cresta), K2 siempre es 1.0
-    k3 = math.exp(-gam * H_edif / Lhc) # z = H_edif (Altura máxima edificio)
-    
-    Kzt_val = (1 + k1 * k2 * k3)**2
-    
-    st.sidebar.info(f"""
-    **Resultados Locales:**
-    * K1: {k1:.3f}
-    * K3: {k3:.3f}
-    * **Kzt Calculado: {Kzt_val:.3f}**
-    """)
+    Hc = st.sidebar.number_input("Altura del relieve Hc (m)", value=27.0, help="Desnivel del relieve respecto del terreno a barlovento (no la cota s.n.m.).")
+    Lhc = st.sidebar.number_input("Lh (m)", value=100.0, help="Distancia horizontal a barlovento entre la cresta y el punto donde el desnivel es Hc/2.")
+    x_cresta = st.sidebar.number_input("Distancia cresta-edificio x (m)", 0.0, 10000.0, 0.0, help="x = 0 en la cresta (valor máximo).")
+    lado_x = st.sidebar.radio("Ubicación respecto de la cresta", ["Barlovento", "Sotavento"], index=1)
+    aplicar_cond = st.sidebar.checkbox("Aplicar condiciones de aplicabilidad (Hc/Lh ≥ 0,2; Hc ≥ 4,5 m en C/D, ≥ 18 m en B)", value=True)
 
 # --- FACTORES NORMATIVOS ---
 st.sidebar.subheader("📋 Factores Normativos")
 
 with st.sidebar.expander("ℹ️ Nota Explicativa: Factor de Direccionalidad (Kd)"):
     st.markdown("""
-    **Criterios de la Tabla 2 (NCh 432:2025):**
+    **Criterios de la Tabla 3 (NCh 432:2025):**
     Este factor compensa la reducida probabilidad de que el viento máximo sople precisamente desde la dirección más crítica para la orientación de la estructura y, simultáneamente, alcance la magnitud de diseño.
     
     **Valores Normativos por Tipo de Estructura:**
@@ -249,7 +232,7 @@ if ke_metodo.startswith("Tabla") and z_e is not None and (z_e < 0 or z_e > 1800)
 
 with st.sidebar.expander("ℹ️ Nota Explicativa: Exposición"):
     st.markdown("""
-    **Rugosidad del Terreno (Capítulo 4):**
+    **Rugosidad del Terreno (NCh 432:2025, 5.5.2):**
     * **B:** Áreas urbanas y suburbanas, áreas boscosas u otros terrenos con numerosas obstrucciones próximas.
     * **C:** Terrenos abiertos con obstrucciones dispersas < 9m. Incluye campos abiertos y terrenos agrícolas.
     * **D:** Áreas planas y sin obstrucciones frente a cuerpos de agua (Costa).
@@ -258,7 +241,7 @@ with st.sidebar.expander("ℹ️ Nota Explicativa: Exposición"):
 # --- AYUDA TÉCNICA RIGUROSA: CATEGORÍA DE EXPOSICIÓN ---
 with st.sidebar.expander("ℹ️ Nota Explicativa: Exposición (B, C, D)"):
     st.markdown("""
-    **Definiciones según NCh 432 (Capítulo 4):**
+    **Definiciones según NCh 432:2025 (5.5.3):**
     
     * **Exposición B:** Áreas urbanas y suburbanas, áreas boscosas u otros terrenos con numerosas obstrucciones próximas del tamaño de viviendas unifamiliares o mayores.
     * **Exposición C:** Terrenos abiertos con obstrucciones dispersas que tienen alturas generalmente menores a 9m. (Categoría por defecto).
@@ -267,25 +250,70 @@ with st.sidebar.expander("ℹ️ Nota Explicativa: Exposición (B, C, D)"):
 
 cat_exp = st.sidebar.selectbox("Categoría de Exposición", ['B', 'C', 'D'], index=0)
 
-# Diccionario de parámetros de rugosidad según Tabla 3 de la Norma
-# alpha: exponente de la ley de potencia | zg: altura nominal de la capa límite (m)
+# Constantes de exposición al terreno según Tabla 6 NCh 432:2025
+# alpha: exponente de la ley de potencia | zg: altura gradiente (m) | zmin: altura mínima (m)
 exp_info = {
-    'B': [7.0, 366.0, "Urbano/Suburbano"],
-    'C': [9.5, 274.0, "Terreno Abierto"],
-    'D': [11.5, 213.0, "Costa/Agua"]
+    'B': [7.5, 1000.0, "Urbano/Suburbano", 10.0],
+    'C': [9.8, 750.0, "Terreno Abierto", 5.0],
+    'D': [11.5, 590.0, "Costa/Agua", 2.0]
 }
 
 alpha_val = exp_info[cat_exp][0]
 zg_val = exp_info[cat_exp][1]
 desc_exp = exp_info[cat_exp][2]
+zmin_val = exp_info[cat_exp][3]
 
 # Despliegue de los factores asociados debajo del selector
 st.sidebar.info(f"""
-**Parámetros de Rugosidad:**
+**Parámetros de Rugosidad (Tabla 6):**
 * Tipo: {desc_exp}
 * Exponente (α): {alpha_val}
-* Altura Gradiente (zg): {zg_val} m
+* Altura Gradiente (zg): {zg_val:.0f} m
+* Altura mínima (zmín): {zmin_val:.0f} m
 """)
+
+# --- FACTOR TOPOGRÁFICO Kzt(z) (se calcula aquí porque K1 depende de la exposición) ---
+# Constantes ASCE/SEI 7-22 Fig. 26.8-1 (base de NCh 432:2025):
+# K1/(H/Lh) por exposición B, C, D | gamma (K3) | mu barlovento | mu sotavento (K2)
+RELIEVE = {
+    "Cresta 2D":  {"k1": {'B': 1.30, 'C': 1.45, 'D': 1.55}, "gam": 3.0, "mu_bar": 1.5, "mu_sot": 1.5},
+    "Escarpe 2D": {"k1": {'B': 0.75, 'C': 0.85, 'D': 0.95}, "gam": 2.5, "mu_bar": 1.5, "mu_sot": 4.0},
+    "Colina 3D":  {"k1": {'B': 0.95, 'C': 1.05, 'D': 1.15}, "gam": 4.0, "mu_bar": 1.5, "mu_sot": 1.5},
+}
+kzt_nota = ""
+if metodo == "Manual":
+    def kzt_de(z):
+        return Kzt_val
+    k1 = k2 = None
+else:
+    rel = RELIEVE[tipo_relieve]
+    h_lh = Hc / Lhc
+    h_lim = 18.0 if cat_exp == 'B' else 4.5
+    if aplicar_cond and (h_lh < 0.2 or Hc < h_lim):
+        kzt_nota = (f"No se cumplen las condiciones de aplicabilidad (Hc/Lh = {h_lh:.3f}; Hc = {Hc:.1f} m): Kzt = 1,0.")
+        k1, k2 = 0.0, 0.0
+        def kzt_de(z):
+            return 1.0
+    else:
+        lh_ef = Lhc
+        if h_lh > 0.5:
+            h_lh, lh_ef = 0.5, 2.0 * Hc
+            kzt_nota = "Hc/Lh > 0,5: se usa Hc/Lh = 0,5 para K1 y Lh = 2·Hc para K2 y K3."
+        k1 = rel["k1"][cat_exp] * h_lh
+        mu = rel["mu_bar"] if lado_x == "Barlovento" else rel["mu_sot"]
+        k2 = max(0.0, 1.0 - abs(x_cresta) / (mu * lh_ef))
+        gam = rel["gam"]
+        def kzt_de(z):
+            return (1.0 + k1 * k2 * math.exp(-gam * z / lh_ef))**2
+    Kzt_val = kzt_de(H_edif)
+    st.sidebar.info(f"""
+    **Factor topográfico ({tipo_relieve}, Exp. {cat_exp}):**
+    * K1: {k1:.3f} · K2: {k2:.3f}
+    * K3 (z = h): {(math.exp(-RELIEVE[tipo_relieve]["gam"] * H_edif / (2*Hc if Hc/Lhc > 0.5 else Lhc)) if k1 else 0):.3f}
+    * **Kzt (z = h): {Kzt_val:.3f}**
+    """)
+    if kzt_nota:
+        st.sidebar.warning(kzt_nota)
 
 # =================================================================
 # 3. SIDEBAR: CATEGORÍA DE RIESGO Y PERIODOS DE RETORNO (CORREGIDO NCh 432:2025)
@@ -293,27 +321,20 @@ st.sidebar.info(f"""
 
 with st.sidebar.expander("ℹ️ Nota Explicativa: Categoría de Riesgo"):
     st.markdown("""
-    **Clasificación según NCh 432:2025:**
-    La norma actual asigna periodos de retorno específicos ($T$) para la velocidad básica del viento, eliminando el antiguo factor de importancia multiplicador.
+    **Clasificación según NCh 3171 y Tabla 2 de NCh 432:2025:**
+    La velocidad básica V es única (Tabla 1 / Tabla C.1) y la categoría de ocupación se incorpora mediante el factor de importancia I, asociado a un período de retorno medio.
     
-    * **Categoría I:** Estructuras que representan un riesgo bajo para la vida humana en caso de falla. 
-      *(T = 300 años)*.
-    * **Categoría II:** Estructuras estándar (Viviendas, oficinas, comercios) que no clasifican en I, III o IV. 
-      *(T = 700 años)*.
-    * **Categoría III:** Estructuras con un gran número de personas o capacidad limitada de evacuación (Colegios, cines, estadios). 
-      *(T = 1700 años)*.
-    * **Categoría IV:** Estructuras esenciales cuya operatividad es crítica tras un evento (Hospitales, estaciones de emergencia). 
-      *(T = 3000 años)*.
-    
-    *Nota: La velocidad básica V (m/s) ingresada debe corresponder al mapa de la categoría seleccionada.*
+    * **Categoría I:** Riesgo bajo para la vida humana en caso de falla. *(T = 25 años; I = 0,87)*.
+    * **Categoría II:** Estructuras de uso corriente que no clasifican en I, III o IV. *(T = 50 años; I = 1,00)*.
+    * **Categoría III:** Gran número de personas o capacidad limitada de evacuación. *(T = 100 años; I = 1,15)*.
+    * **Categoría IV:** Instalaciones esenciales (hospitales, estaciones de emergencia). *(T = 150 años; I = 1,22)*.
     """)
 
 # Selector de Categoría de Riesgo
 cat_imp = st.sidebar.selectbox("Categoría de Riesgo / Riesgo", ['I', 'II', 'III', 'IV'], index=1)
 
-# En la NCh 432-2025, el factor de importancia I es 1.0 porque el riesgo se incluye en V_basica
-# Sin embargo, para mantener compatibilidad con el motor de cálculo:
-imp_map = {'I': 0.54, 'II': 1.0, 'III': 1.15, 'IV': 1.22}
+# Tabla 2 NCh 432:2025: factor de importancia por categoría de ocupación
+imp_map = {'I': 0.87, 'II': 1.0, 'III': 1.15, 'IV': 1.22}
 factor_i = imp_map[cat_imp]
 st.sidebar.info(f"**Factor de importancia (I): {factor_i }**")
 
@@ -358,22 +379,39 @@ nota_tecnica_cerramiento = gcpi_data[cerramiento_opcion][1]
 st.sidebar.info(f"**Factor GCpi asociado: ± {gc_pi_val}**")
 
 # --- MOTOR MATEMÁTICO ---
-def get_gcp(a, g1, g10):
-    if a <= 1.0: return g1
-    if a >= 10.0: return g10
-    return g1 + (g10 - g1) * (np.log10(a) - np.log10(1.0))
+def get_gcp(a, g_lo, g_hi, a_lo=0.9, a_hi=46.5):
+    """Interpolación lineal en log10(A) entre a_lo y a_hi; constante fuera del rango."""
+    if a <= a_lo: return g_lo
+    if a >= a_hi: return g_hi
+    return g_lo + (g_hi - g_lo) * np.log10(a / a_lo) / np.log10(a_hi / a_lo)
 
-exp_params = {'B': [7.0, 366.0], 'C': [9.5, 274.0], 'D': [11.5, 213.0]}
-alpha, zg = exp_params[cat_exp]
-kz = 2.01 * ((max(H_edif, 4.6) / zg)**(2/alpha))
+# Tabla 6 NCh 432:2025: [alpha, zg (m), zmin (m)]
+exp_params = {'B': [7.5, 1000.0, 10.0], 'C': [9.8, 750.0, 5.0], 'D': [11.5, 590.0, 2.0]}
+alpha, zg, zmin = exp_params[cat_exp]
 
-# Presión de velocidad qh - Ec. (2) NCh 432:2025: qz = 0.613 I Kz Kzt Ke V^2 [N/m2]
-# Kd YA NO va en q: se aplica en la presión de diseño, Ec. (19): p = qh Kd [(GCp) - (GCpi)]
-qh = (0.613 * imp_map[cat_imp] * kz * Kzt_val * Ke_val * (V**2)) * 0.10197
+def kz_de(z):
+    """Tabla 5 NCh 432:2025, Notas 1, 3 y 4: Kz = 2,41 (z/zg)^(2/α); z < zmin -> z = zmin; z > zg -> 2,41."""
+    if z > zg:
+        return 2.41
+    return 2.41 * ((max(z, zmin) / zg)**(2/alpha))
 
-def p_diseno(q, gcp, gcpi):
-    """Ec. (19) NCh 432:2025: p = q Kd [(GCp) - (GCpi)], con GCpi en el signo más desfavorable."""
-    return q * Kd_val * (gcp + gcpi) if gcp >= 0 else q * Kd_val * (gcp - gcpi)
+kz = kz_de(H_edif)
+
+def q_de(z):
+    """Ec. (2) NCh 432:2025: qz = 0,613 I Kz Kzt Ke V² [N/m²], expresada en kgf/m². Kd se aplica en p."""
+    return (0.613 * imp_map[cat_imp] * kz_de(z) * kzt_de(z) * Ke_val * (V**2)) * 0.10197
+
+qh = q_de(H_edif)
+edificio_alto = H_edif > 18.3
+
+P_MIN = 480 * 0.10197  # presión mínima de diseño para C&R: 480 N/m²
+
+def p_diseno(q, gcp, gcpi, qi=None):
+    """p = q Kd (GCp) - qi Kd (GCpi), con GCpi en el signo más desfavorable y qi = qh (edificio cerrado).
+    Se aplica la presión mínima de 480 N/m² para C&R."""
+    qi = qh if qi is None else qi
+    p = q * Kd_val * gcp + (qi * Kd_val * gcpi if gcp >= 0 else -qi * Kd_val * gcpi)
+    return float(np.sign(p) * max(abs(p), P_MIN)) if p != 0 else P_MIN
 
 
 # =================================================================
@@ -392,21 +430,46 @@ st.markdown(f"""
 
 # Caja de Fórmulas y Ecuaciones
 st.markdown("### 📝 Ecuaciones de Diseño Aplicadas")
+st.latex(r"K_z = 2.41 \left(\frac{z}{z_g}\right)^{2/\alpha} \quad (z_{min} \le z \le z_g) \qquad \text{(Tabla 5, Nota 1; Tabla 6)}")
 st.latex(r"q_z = 0.613 \cdot I \cdot K_z \cdot K_{zt} \cdot K_e \cdot V^2 \qquad \text{(Ec. 2)}")
-st.latex(r"p = q_h \cdot K_d \cdot \left[(GC_p) - (GC_{pi})\right] \qquad \text{(Ec. 19)}")
+st.latex(r"p = q \cdot K_d \cdot (GC_p) - q_i \cdot K_d \cdot (GC_{pi}) \geq 480\ \text{N/m}^2")
 st.caption(f"Kd = {Kd_val:.2f} se aplica a la presión neta (externa e interna), no a la presión de velocidad. Ke = {Ke_val:.3f} ({ke_metodo}).")
 
-st.info(f"**Presión de Velocidad Calculada (qh):** {qh:.2f} kgf/m²")
+st.info(f"**Presión de Velocidad Calculada (qh):** {qh:.2f} kgf/m² · Kz = {kz:.3f} · Kzt = {Kzt_val:.3f} · "
+        f"{'Edificio alto (h > 18,3 m): coeficientes de la Figura 40' if edificio_alto else 'Edificio de baja altura (h ≤ 18,3 m): coeficientes de muros de la Figura 24'}")
 
 # --- CÁLCULO DE COEFICIENTES GCp (DEFINICIÓN DE VARIABLES PARA PUNTO 6) ---
-# Techo (Solo Succión)
-z1 = get_gcp(area_ef, -1.0, -0.9) if theta <= 7 else get_gcp(area_ef, -0.9, -0.8)
-z2 = get_gcp(area_ef, -1.8, -1.1) if theta <= 7 else get_gcp(area_ef, -1.3, -1.2)
-z3 = get_gcp(area_ef, -2.8, -1.1) if theta <= 7 else get_gcp(area_ef, -2.0, -1.2)
+# Coeficientes de muros: [GCp(A <= 0,9 m²), GCp(A >= 46,5 m²)]
+if edificio_alto:
+    # Figura 40 (h > 18,3 m)
+    GC_MURO = {"z4p": (0.9, 0.6), "z5p": (0.9, 0.6), "z4n": (-0.9, -0.7), "z5n": (-1.8, -1.0)}
+    fig_muro = "Figura 40"
+else:
+    # Figura 24 (h <= 18,3 m)
+    GC_MURO = {"z4p": (1.0, 0.7), "z5p": (1.0, 0.7), "z4n": (-1.1, -0.8), "z5n": (-1.4, -0.8)}
+    fig_muro = "Figura 24"
 
-# Paredes (Nombres específicos para evitar NameError)
-z4_neg, z5_neg = get_gcp(area_ef, -1.1, -0.8), get_gcp(area_ef, -1.4, -1.1)
-z4_pos, z5_pos = get_gcp(area_ef, 1.0, 0.7), get_gcp(area_ef, 1.0, 0.8)
+aviso_techo = None
+if edificio_alto:
+    # Figura 40, techos con θ <= 10°: zonas 1, 2 y 3 entre 0,9 y 46,5 m²
+    z1 = get_gcp(area_ef, -1.4, -0.9)
+    z2 = get_gcp(area_ef, -2.3, -1.6)
+    z3 = get_gcp(area_ef, -3.2, -2.3)
+    if theta > 10:
+        aviso_techo = ("θ > 10°: la Figura 40 aplica a techos con θ ≤ 10° (Nota 6). Los coeficientes de techo "
+                       "mostrados no son válidos; usar las figuras de techos de baja altura con qh.")
+else:
+    # Techos de baja altura: coeficientes heredados (no verificados contra las figuras de techos de NCh 432:2025)
+    z1 = get_gcp(area_ef, -1.0, -0.9, 1.0, 10.0) if theta <= 7 else get_gcp(area_ef, -0.9, -0.8, 1.0, 10.0)
+    z2 = get_gcp(area_ef, -1.8, -1.1, 1.0, 10.0) if theta <= 7 else get_gcp(area_ef, -1.3, -1.2, 1.0, 10.0)
+    z3 = get_gcp(area_ef, -2.8, -1.1, 1.0, 10.0) if theta <= 7 else get_gcp(area_ef, -2.0, -1.2, 1.0, 10.0)
+    aviso_techo = ("Coeficientes de techo para h ≤ 18,3 m no verificados contra las figuras de techos de "
+                   "NCh 432:2025 (zonas 1', 1, 2 y 3). Usar solo como referencia.")
+
+z4_pos, z5_pos = get_gcp(area_ef, *GC_MURO["z4p"]), get_gcp(area_ef, *GC_MURO["z5p"])
+z4_neg, z5_neg = get_gcp(area_ef, *GC_MURO["z4n"]), get_gcp(area_ef, *GC_MURO["z5n"])
+if aviso_techo:
+    st.warning(aviso_techo)
 
 # Tabulación de Resultados
 col_res, col_plt = st.columns([1, 1.3])
@@ -414,15 +477,13 @@ col_res, col_plt = st.columns([1, 1.3])
 with col_res:
     st.markdown("**Resumen de Presiones Netas por Zona**")
     
-    # Agregamos Pared Lateral a la lista
+    # Muros laterales y de sotavento quedan cubiertos por la succión de Zonas 4 y 5 (C&R)
     zonas = [
         "Z1 (Techo Centro - Succión)", "Z2 (Techo Borde - Succión)", "Z3 (Techo Esq - Succión)",
-        "Z4 (Pared Std - Barlovento)", "Z4 (Pared Std - Sotavento)",
-        "Z5 (Pared Esq - Barlovento)", "Z5 (Pared Esq - Sotavento)",
-        "Paredes Laterales (Succión)" # <-- NUEVA FILA
+        "Z4 (Muro - Sobrepresión)", "Z4 (Muro - Succión)",
+        "Z5 (Muro Esq - Sobrepresión)", "Z5 (Muro Esq - Succión)",
     ]
-    # CP lateral estándar -0.80
-    gcp_vals = [z1, z2, z3, z4_pos, z4_neg, z5_pos, z5_neg, -0.80]
+    gcp_vals = [z1, z2, z3, z4_pos, z4_neg, z5_pos, z5_neg]
     
     p_netas = []
     for g in gcp_vals:
@@ -431,25 +492,29 @@ with col_res:
     df_res = pd.DataFrame({
         "Zona de Análisis": zonas,
         "GCp (Externo)": [round(z, 3) for z in gcp_vals],
-        "GCpi (Interno)": [gc_pi_val] * 8,
+        "GCpi (Interno)": [gc_pi_val] * len(zonas),
         "Presión Neta (kgf/m²)": p_netas
     })
     st.table(df_res)
 
 with col_plt:
-    areas = np.logspace(0, 1.5, 100)
+    areas = np.logspace(-1, 2, 200)
     fig, ax = plt.subplots(figsize=(10, 7))
     # Curvas de Succión
-    ax.plot(areas, [get_gcp(a, -1.1, -0.8) for a in areas], label='Z4 Sotavento (S)', color='green', lw=2)
-    ax.plot(areas, [get_gcp(a, -1.4, -1.1) for a in areas], label='Z5 Sotavento (S)', color='red', lw=2)
-    # Curvas de Empuje
-    ax.plot(areas, [get_gcp(a, 1.0, 0.7) for a in areas], label='Z4 Barlovento (E)', color='green', lw=2, ls=':')
-    ax.plot(areas, [get_gcp(a, 1.0, 0.8) for a in areas], label='Z5 Barlovento (E)', color='red', lw=2, ls=':')
-    
-    for z_v in gcp_vals:
+    ax.plot(areas, [get_gcp(a, *GC_MURO["z4n"]) for a in areas], label='Z4 Succión', color='green', lw=2)
+    ax.plot(areas, [get_gcp(a, *GC_MURO["z5n"]) for a in areas], label='Z5 Succión', color='red', lw=2)
+    # Curvas de Sobrepresión
+    ax.plot(areas, [get_gcp(a, *GC_MURO["z4p"]) for a in areas], label='Z4 Sobrepresión', color='green', lw=2, ls=':')
+    ax.plot(areas, [get_gcp(a, *GC_MURO["z5p"]) for a in areas], label='Z5 Sobrepresión', color='red', lw=1.5, ls='--')
+    for a_l in (0.9, 46.5):
+        ax.axvline(a_l, color='gray', lw=0.8, ls='--')
+
+    for z_v in [z4_pos, z4_neg, z5_pos, z5_neg]:
         ax.scatter([area_ef], [z_v], color='black', s=40, zorder=10)
 
-    ax.set_xlabel("Área Tributaria (m²)"); ax.set_ylabel("Coeficiente GCp")
+    ax.set_xscale('log')
+    ax.set_title(f"Coeficientes GCp de muros - {fig_muro} NCh 432:2025", fontsize=11)
+    ax.set_xlabel("Área efectiva de viento A (m²)"); ax.set_ylabel("Coeficiente GCp")
     ax.axhline(0, color='black', lw=1); ax.grid(True, which="both", alpha=0.3)
     ax.legend(fontsize='x-small', loc='center left', bbox_to_anchor=(1, 0.5))
     st.pyplot(fig)
@@ -461,51 +526,39 @@ st.divider()
 st.subheader("📊 Perfil de Presiones Netas (NCh 432): Barlovento vs Sotavento")
 
 # Coeficiente típico para paredes laterales (Succión constante)
-cp_lateral = -0.80 
-
 alturas_perfil = np.linspace(0.1, H_edif, 50)
 p_barlo_4, p_barlo_5 = [], [] 
 p_sota_4, p_sota_5 = [], [] 
-p_laterales = [] 
 
 for z_alt in alturas_perfil:
-    # Presión de velocidad variable (qz) según Kz
-    kz_z = 2.01 * ((max(z_alt, 4.6) / zg)**(2/alpha))
-    qz = (0.613 * imp_map[cat_imp] * kz_z * Kzt_val * Ke_val * (V**2)) * 0.10197
+    # h > 18,3 m: sobrepresión con qz (Figura 40, Nota 4); h <= 18,3 m: qh uniforme (Figura 24)
+    q_bar = q_de(z_alt) if edificio_alto else qh
+    p_barlo_4.append(p_diseno(q_bar, z4_pos, gc_pi_val))
+    p_barlo_5.append(p_diseno(q_bar, z5_pos, gc_pi_val))
     
-    # BARLOVENTO (+) - Empuje variable con la altura
-    p_barlo_4.append(p_diseno(qz, z4_pos, gc_pi_val))
-    p_barlo_5.append(p_diseno(qz, z5_pos, gc_pi_val))
-    
-    # SOTAVENTO (-) - Succión constante basada en qh (altura de techo)
+    # SUCCIÓN (-) - Constante, evaluada con qh
     p_sota_4.append(p_diseno(qh, z4_neg, gc_pi_val))
     p_sota_5.append(p_diseno(qh, z5_neg, gc_pi_val))
-    
-    # LATERALES (-) - Succión constante basada en qh
-    p_laterales.append(p_diseno(qh, cp_lateral, gc_pi_val))
 
 # Renderizado Gráfico Profesional
 fig_alt, ax_alt = plt.subplots(figsize=(12, 8))
 
 # Graficar Barlovento (Derecha)
-ax_alt.plot(p_barlo_4, alturas_perfil, label="Barlovento Z4 (Empuje Std)", color='darkgreen', lw=2)
-ax_alt.plot(p_barlo_5, alturas_perfil, label="Barlovento Z5 (Empuje Esq)", color='limegreen', lw=2, ls='--')
+ax_alt.plot(p_barlo_4, alturas_perfil, label="Z4 Sobrepresión", color='darkgreen', lw=2)
+ax_alt.plot(p_barlo_5, alturas_perfil, label="Z5 Sobrepresión", color='limegreen', lw=2, ls='--')
 
-# Graficar Sotavento (Izquierda)
-ax_alt.plot(p_sota_4, alturas_perfil, label="Sotavento Z4 (Succión Std)", color='blue', lw=2)
-ax_alt.plot(p_sota_5, alturas_perfil, label="Sotavento Z5 (Succión Esq)", color='darkblue', lw=3)
-
-# RESTAURADO: Graficar Laterales (Izquierda)
-ax_alt.plot(p_laterales, alturas_perfil, label="Paredes Laterales (Succión)", color='purple', ls=':', lw=2)
+# Graficar Succión (Izquierda)
+ax_alt.plot(p_sota_4, alturas_perfil, label="Z4 Succión (qh)", color='blue', lw=2)
+ax_alt.plot(p_sota_5, alturas_perfil, label="Z5 Succión (qh)", color='darkblue', lw=3)
 
 # Configuración del Eje y Estética
 ax_alt.axvline(0, color='red', lw=2) 
 ax_alt.set_title(f"Perfil de Presiones Netas de Diseño | V = {V} m/s", fontsize=14)
-ax_alt.set_xlabel("Presión Neta [kgf/m²] <-- SUCCIÓN (Sotavento/Lat) | EMPUJE (Barlovento) -->", fontsize=12)
+ax_alt.set_xlabel("Presión Neta [kgf/m²] <-- SUCCIÓN | SOBREPRESIÓN -->", fontsize=12)
 ax_alt.set_ylabel("Altura sobre N.N.T. [m]", fontsize=12)
 
 # Ajuste dinámico de límites
-max_p = max(max(p_barlo_5), abs(min(p_sota_5)), abs(min(p_laterales))) * 1.2
+max_p = max(max(p_barlo_4), max(p_barlo_5), abs(min(p_sota_5))) * 1.2
 ax_alt.set_xlim(-max_p, max_p)
 
 ax_alt.grid(True, which='both', ls='--', alpha=0.5)
@@ -513,7 +566,9 @@ ax_alt.legend(loc='upper right', fontsize='small', frameon=True)
 
 st.pyplot(fig_alt)
 
-st.write("📌 **Interpretación**: Las curvas a la izquierda representan succiones. La curva punteada morada indica la presión en las caras laterales, la cual se mantiene uniforme en toda la altura según NCh 432.")
+st.write("📌 **Interpretación**: Las curvas a la izquierda representan succiones, evaluadas con qh y uniformes en altura; "
+         "cubren muros de sotavento y laterales. La sobrepresión se evalúa con qz en edificios con h > 18,3 m "
+         "(Figura 40, Nota 4) y con qh en edificios de baja altura. Se aplica la presión mínima de 480 N/m².")
 
 # =================================================================
 # 7. ESQUEMAS NORMATIVOS Y REFERENCIAS FINALES
@@ -705,9 +760,10 @@ def generar_pdf_viento():
     pdf.h2("4. Factores de cálculo", reserva=80)
     filas_f = [
         ["Exponente de ley de potencia alfa", _n(alpha, 1)],
-        ["Altura gradiente zg", f"{_n(zg, 0)} m"],
+        ["Altura gradiente zg (Tabla 6)", f"{_n(zg, 0)} m"],
+        ["Altura mínima zmín (Tabla 6)", f"{_n(zmin, 0)} m"],
         ["Coef. de exposición Kz (z = h)", _n(kz, 3)],
-        ["Factor topográfico Kzt", _n(Kzt_val, 3)],
+        ["Factor topográfico Kzt (z = h)", _n(Kzt_val, 3)],
         ["Factor de elevación del suelo Ke (5.7)", _n(Ke_val, 3)],
         ["Factor de direccionalidad Kd", _n(Kd_val, 2)],
         ["Factor de importancia I", _n(factor_i, 2)],
@@ -715,8 +771,11 @@ def generar_pdf_viento():
     ]
     pdf.tabla(["Factor", "Valor"], filas_f, [120, 60])
     if metodo == "Calculado":
-        pdf.p(f"Kzt calculado para {tipo_relieve} con Hc = {_n(Hc, 1)} m y Lh = {_n(Lhc, 1)} m, en la cresta "
-              f"(x = 0, K2 = 1,0) y z = h: K1 = {_n(k1, 3)}, K3 = {_n(k3, 3)}, Kzt = (1 + K1·K2·K3)² = {_n(Kzt_val, 3)}.")
+        pdf.p(f"Kzt calculado para {tipo_relieve}, Exposición {cat_exp}, con Hc = {_n(Hc, 1)} m, Lh = {_n(Lhc, 1)} m "
+              f"y x = {_n(x_cresta, 1)} m a {lado_x.lower()}: K1 = {_n(k1, 3)}, K2 = {_n(k2, 3)}; "
+              f"Kzt(z) = (1 + K1·K2·K3(z))², con Kzt(h) = {_n(Kzt_val, 3)}. Constantes según ASCE/SEI 7-22 Fig. 26.8-1.")
+        if kzt_nota:
+            pdf.nota(kzt_nota)
     else:
         pdf.p(f"Kzt ingresado directamente por el usuario: {_n(Kzt_val, 3)}.")
 
@@ -738,16 +797,20 @@ def generar_pdf_viento():
 
     # --- 5. Formulación ---
     pdf.h2("5. Formulación")
-    pdf.p("Coeficiente de exposición (z >= 4,6 m):")
-    pdf.eq("Kz = 2,01 · (z / zg)^(2/alfa)")
+    pdf.p("Coeficiente de exposición (Tabla 5, Notas 1, 3 y 4; alfa, zg y zmín según Tabla 6):")
+    pdf.eq("Kz = 2,41 · (z / zg)^(2/alfa)  ;  z < zmín: z = zmín  ;  z > zg: Kz = 2,41")
     pdf.p("Factor de elevación del suelo (5.7, Tabla 4, Nota 2):")
     pdf.eq("Ke = e^(-0,000119 · ze)   ;   Ke = 1,00 permitido para toda elevación")
     pdf.p("Presión de velocidad, Ec. (2):")
     pdf.eq("qz = 0,613 · I · Kz · Kzt · Ke · V²   [N/m²]")
-    pdf.p("Presión de diseño para C&R, Ec. (19), con GCpi en el signo más desfavorable:")
-    pdf.eq("p = qh · Kd · [ (GCp) - (GCpi) ]")
-    pdf.p("GCp se interpola linealmente en log10(A) entre A = 1 m² y A = 10 m². "
+    pdf.p("Presión de diseño para C&R, con GCpi en el signo más desfavorable y qi = qh:")
+    pdf.eq("p = q · Kd · (GCp) - qi · Kd · (GCpi)   ;   |p| >= 480 N/m²")
+    pdf.p(f"GCp de muros según la {fig_muro} de NCh 432:2025, interpolado linealmente en log10(A) entre "
+          f"A = 0,9 m² y A = 46,5 m². " + ("La sobrepresión se evalúa con qz y la succión con qh (Figura 40, Nota 4). "
+          if edificio_alto else "Todas las presiones se evalúan con qh (edificio de baja altura). ") +
           "Conversión de unidades: 1 N/m² = 0,10197 kgf/m².")
+    if aviso_techo:
+        pdf.nota(aviso_techo)
 
     # --- 6. qh ---
     pdf.h2("6. Presión de velocidad a la altura media del techo")
@@ -759,8 +822,9 @@ def generar_pdf_viento():
     filas_p = [[_txt(z), _n(g, 3), f"± {_n(gc_pi_val, 2)}", _n(p, 2)]
                for z, g, p in zip(zonas, gcp_vals, p_netas)]
     pdf.tabla(["Zona de análisis", "GCp", "GCpi", "p [kgf/m²]"], filas_p, [84, 30, 30, 36])
-    pdf.p("Valores positivos: empuje hacia la superficie. Valores negativos: succión hacia el exterior. "
-          "Las caras de sotavento y laterales se evalúan con qh, constante en toda la altura.", size=8.5, style="I")
+    pdf.p("Valores positivos: sobrepresión hacia la superficie. Valores negativos: succión hacia el exterior. "
+          "La succión de Zonas 4 y 5 cubre los muros de sotavento y laterales y se evalúa con qh, constante en "
+          "toda la altura. Se aplica la presión mínima de 480 N/m² (48,9 kgf/m²).", size=8.5, style="I")
 
     # --- 8. Gráficos ---
     pdf.h2("8. Gráficos de verificación")
