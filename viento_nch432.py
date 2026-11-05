@@ -106,8 +106,8 @@ st.caption("Análisis Integral de Presiones de Viento: Cubiertas, Fachadas y Per
 st.sidebar.header("⚙️ Parámetros de Diseño")
 
 # --- ELEMENTO A ANALIZAR ---
-FACHADA, PARAPETO, BARANDA = "Fachadas y cubierta (C&R)", "Parapetos", "Barandas"
-modo = st.sidebar.radio("🧱 Elemento a analizar", [FACHADA, PARAPETO, BARANDA],
+FACHADA, PARAPETO = "Fachadas y cubierta (C&R)", "Parapetos y barandas"
+modo = st.sidebar.radio("🧱 Elemento a analizar", [FACHADA, PARAPETO],
                         help="Fachadas: presiones C&R por zona (Figuras 24, 26 y 40). "
                              "Parapetos y barandas: NCh 432:2025, 9.6, Ecuación (22) y Figura 45.")
 
@@ -158,8 +158,9 @@ if modo == FACHADA:
 
 # --- PARAPETOS Y BARANDAS (NCh 432:2025, 9.6 y Figura 45) ---
 ubic_baranda, en_techo = None, True
+EL_ART, EL_UN = "el parapeto o baranda", "un parapeto o baranda"   # textos según la ubicación
 if modo != FACHADA:
-    st.sidebar.subheader("🧱 Parapeto" if modo == PARAPETO else "🧱 Baranda")
+    st.sidebar.subheader("🧱 Parapeto o baranda")
     with st.sidebar.expander("ℹ️ Nota Explicativa: Parapetos y barandas (9.6)"):
         st.markdown(r"""
         **NCh 432:2025, 9.6 – Ecuación (22):** $p = q_p\,K_d\,[(GC_p) - (GC_{pi})]$, con $q_p$ evaluada
@@ -179,12 +180,14 @@ if modo != FACHADA:
         """)
         _b = leer_imagen("F45.png")
         if _b: st.image(_b, caption="Figura 45 - NCh 432:2025")
-    if modo == BARANDA:
-        ubic_baranda = st.sidebar.radio("Ubicación de la baranda",
-                                        ["Borde de techo / azotea", "Balcón o terraza en fachada"])
-    en_techo = (modo == PARAPETO) or (ubic_baranda == "Borde de techo / azotea")
-    h_elem = st.sidebar.number_input("Altura del parapeto hp (m)" if modo == PARAPETO else "Altura de la baranda hb (m)",
-                                     0.1, 5.0, 1.0 if modo == PARAPETO else 1.1, step=0.05)
+    ubic_baranda = st.sidebar.radio("Ubicación del elemento",
+                                    ["Borde de techo / azotea (casos A y B)", "Balcón o terraza en fachada (caso B)"],
+                                    help="En el borde del techo la cara interior recibe la succión del techo (caso A). "
+                                         "En un balcón no hay techo detrás y se aplica el caso B.")
+    en_techo = ubic_baranda.startswith("Borde")
+    if not en_techo:
+        EL_ART, EL_UN = "la baranda de balcón", "una baranda de balcón"
+    h_elem = st.sidebar.number_input("Altura del parapeto o baranda h (m)", 0.1, 5.0, 1.0, step=0.05)
     if en_techo:
         z_base_elem = H_edif
     else:
@@ -795,7 +798,7 @@ def dibujar_esquema_parapeto(res):
         ax.set_xlim(-0.95, 1.6); ax.set_ylim(-1.0, 1.4)
     for ax in axs:
         ax.set_aspect("equal"); ax.axis("off")
-    fig.suptitle(f"Presiones de diseño sobre {('el parapeto' if modo == PARAPETO else 'la baranda')} [kgf/m²]  ·  "
+    fig.suptitle(f"Presiones de diseño sobre {EL_ART} [kgf/m²]  ·  "
                  f"qp = {res['qp']:.1f} kgf/m² (z = {z_top:.2f} m)", fontsize=10)
     fig.tight_layout()
     return fig
@@ -819,7 +822,7 @@ def dibujar_curvas_parapeto(res):
     ax.set_xscale("log")
     ax.set_xlabel("Área efectiva de viento A (m²)")
     ax.set_ylabel("Coeficiente neto (GCp)cara 1 − (GCp)cara 2")
-    ax.set_title(f"Coeficiente neto {('del parapeto' if modo == PARAPETO else 'de la baranda')} "
+    ax.set_title(f"Coeficiente neto ({EL_ART}) "
                  f"({fig_muro}" + (f" y {fig_techo})" if en_techo else ")"), fontsize=11)
     ax.grid(True, which="both", alpha=0.3)
     ax.legend(fontsize="small")
@@ -829,8 +832,7 @@ def dibujar_curvas_parapeto(res):
 
 if modo != FACHADA:
     res_par = calcular_parapeto()
-    nombre_el = "parapeto" if modo == PARAPETO else "baranda"
-    st.markdown(f"### 🧱 Presión de viento sobre {('parapetos' if modo == PARAPETO else 'barandas')} (NCh 432:2025, 9.6)")
+    st.markdown("### 🧱 Presión de viento sobre parapetos y barandas (NCh 432:2025, 9.6)")
     st.latex(r"q_p = 0.613 \cdot I \cdot K_z \cdot K_{zt} \cdot K_e \cdot V^2 \quad (z = \text{punto más alto}) \qquad \text{(Ec. 2)}")
     st.latex(r"p = q_p \cdot K_d \cdot \left[(GC_p) - (GC_{pi})\right] \qquad \text{(Ec. 22)}")
     st.latex(r"p_{neta} = q_p \cdot K_d \cdot \left[(GC_p)_{cara\,1} - (GC_p)_{cara\,2}\right] \;\geq\; 250\ \text{N/m}^2"
@@ -1019,8 +1021,7 @@ def generar_pdf_viento():
     # --- Portada ---
     pdf.set_font("Times", "B", 17)
     titulo_mem = {FACHADA: "Determinación de presiones de viento según NCh 432:2025",
-                  PARAPETO: "Presiones de viento sobre parapetos según NCh 432:2025",
-                  BARANDA: "Presiones de viento sobre barandas según NCh 432:2025"}[modo]
+                  PARAPETO: "Presiones de viento sobre parapetos y barandas según NCh 432:2025"}[modo]
     pdf.multi_cell(0, 8, _txt("Memoria de cálculo - " + titulo_mem), new_x="LMARGIN", new_y="NEXT")
     pdf.set_font("Helvetica", "", 9)
     pdf.set_text_color(91, 104, 118)
@@ -1042,10 +1043,10 @@ def generar_pdf_viento():
               f"área efectiva {_n(area_ef, 2)} m². Se reportan la presión de velocidad, las presiones netas por zona "
               f"y el perfil de presiones en altura para barlovento, sotavento y caras laterales.")
     else:
-        ubic_txt = ("en el borde del techo" if en_techo else
-                    f"en un balcón de fachada, con piso a {_n(z_base_elem, 2)} m sobre el terreno")
-        pdf.p(f"Se determinan las presiones de diseño del viento sobre {('un parapeto' if modo == PARAPETO else 'una baranda')} "
-              f"de altura {_n(h_elem, 2)} m ubicado {ubic_txt}, en un edificio de altura media h = {_n(H_edif, 1)} m "
+        ubic_txt = ("ubicado en el borde del techo" if en_techo else
+                    f"con el piso del balcón a {_n(z_base_elem, 2)} m sobre el terreno")
+        pdf.p(f"Se determinan las presiones de diseño del viento sobre {EL_UN} "
+              f"de altura {_n(h_elem, 2)} m, {ubic_txt}, en un edificio de altura media h = {_n(H_edif, 1)} m "
               f"(componentes y revestimientos, NCh 432:2025, 9.6). Se reportan la presión de velocidad en el punto más "
               f"alto del elemento, las presiones sobre cada cara y la presión neta para los casos de carga de la "
               f"Figura 45, junto con la carga lineal, la fuerza y el momento en la base de los montantes, separados "
@@ -1077,7 +1078,7 @@ def generar_pdf_viento():
         ]
     else:
         filas += [
-            ["Elemento", "Parapeto" if modo == PARAPETO else f"Baranda ({ubic_baranda.lower()})"],
+            ["Elemento", "Parapeto o baranda (" + ("borde de techo / azotea" if en_techo else "balcón o terraza en fachada") + ")"],
             ["Altura del elemento", f"{_n(h_elem, 2)} m"],
             ["Cota de la base del elemento", f"{_n(z_base_elem, 2)} m"],
             ["Cota del punto más alto z", f"{_n(z_top, 2)} m"],
@@ -1224,7 +1225,7 @@ def generar_pdf_viento():
               "exposición, categoría o cerramiento requiere una nueva evaluación.")
     else:
         # --- 7. Resultados parapeto / baranda ---
-        pdf.h2("7. Presiones de diseño sobre " + ("el parapeto" if modo == PARAPETO else "la baranda"), reserva=75)
+        pdf.h2("7. Presiones de diseño sobre " + EL_ART, reserva=75)
         casos = res_par["casos"]
         pdf.tabla(["Caso", "Zona", "GCp cara 1", "GCp cara 2", "p cara 1", "p cara 2", "p neta"],
                   [[c["caso"], _txt(c["zona"]), _n(c["g1"], 3), _n(c["g2"], 3), _n(c["p1"], 2), _n(c["p2"], 2),
@@ -1300,7 +1301,7 @@ st.subheader("📄 Memoria de Cálculo")
 try:
     _pdf_bytes = generar_pdf_viento()
     st.download_button("⬇️ Descargar memoria de cálculo (PDF)", data=_pdf_bytes,
-                       file_name=f"Memoria_Viento_{ {FACHADA: 'Fachadas', PARAPETO: 'Parapetos', BARANDA: 'Barandas'}[modo] }_{mem_codigo}_Rev{mem_rev}.pdf",
+                       file_name=f"Memoria_Viento_{ {FACHADA: 'Fachadas', PARAPETO: 'Parapetos_y_Barandas'}[modo] }_{mem_codigo}_Rev{mem_rev}.pdf",
                        mime="application/pdf", type="primary")
     st.caption("Incluye datos de entrada, factores, formulación, presiones por zona, gráficos y esquemas. "
                "Complete los datos del documento en el panel lateral (📄 Datos de la Memoria Técnica).")
