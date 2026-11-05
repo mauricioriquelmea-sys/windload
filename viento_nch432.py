@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import base64
 import os
 import math
+import io
 from fpdf import FPDF
 
 # Tabla 4 NCh 432:2025 - Factor de elevación del suelo Ke en función de ze [m]
@@ -59,13 +60,22 @@ st.markdown("""
 # =================================================================
 # 2. FUNCIONES DE SOPORTE (IMÁGENES Y LOGOS EN BASE64)
 # =================================================================
+# Imágenes incrustadas (Logo, Ray, Eolo, F2...F12). Vacío en la versión normal;
+# embeber_imagenes_py.py lo rellena para generar la versión autocontenida.
+IMAGENES_EMBEBIDAS = {}
+
+def leer_imagen(nombre):
+    """Bytes de la imagen: primero el archivo junto al script; si no existe, la copia incrustada."""
+    if os.path.exists(nombre):
+        with open(nombre, "rb") as f:
+            return f.read()
+    b64 = IMAGENES_EMBEBIDAS.get(nombre)
+    return base64.b64decode(b64) if b64 else None
+
 def get_base64_image(image_path):
     """Convierte una imagen a base64 para embeberla en el encabezado HTML"""
-    if os.path.exists(image_path):
-        with open(image_path, "rb") as f:
-            data = f.read()
-            return base64.b64encode(data).decode()
-    return None
+    data = leer_imagen(image_path)
+    return base64.b64encode(data).decode() if data else None
 
 def render_header_images(logo_file, ray_file, eolo_file):
     """Renderiza el Logo Corporativo, Ray y Eolo en una sola fila centrada."""
@@ -95,6 +105,12 @@ st.caption("Análisis Integral de Presiones de Viento: Cubiertas, Fachadas y Per
 # =================================================================
 st.sidebar.header("⚙️ Parámetros de Diseño")
 
+# --- ELEMENTO A ANALIZAR ---
+FACHADA, PARAPETO, BARANDA = "Fachadas y cubierta (C&R)", "Parapetos", "Barandas"
+modo = st.sidebar.radio("🧱 Elemento a analizar", [FACHADA, PARAPETO, BARANDA],
+                        help="Fachadas: presiones C&R por zona (Figuras 24, 26 y 40). "
+                             "Parapetos y barandas: NCh 432:2025, 9.6, Ecuación (22) y Figura 45.")
+
 # --- GUÍA DE VELOCIDAD ---
 with st.sidebar.expander("🚩 Guía: Velocidad Básica (V) y Mapas"):
     st.markdown("""
@@ -118,24 +134,79 @@ with st.sidebar.expander("🚩 Guía: Velocidad Básica (V) y Mapas"):
                "Santiago (< 1000 msnm) corresponde a la Zona III-A: V = 34 m/s.")
     if st.button("Desplegar Mapas de Chile"):
         for img in ["F2.png", "F3.png", "F4.png", "F5.png"]:
-            if os.path.exists(img): st.image(img, caption=f"Zonificación: {img}")
+            _b = leer_imagen(img)
+            if _b: st.image(_b, caption=f"Zonificación: {img}")
 
 V = st.sidebar.number_input("Velocidad básica V (m/s)", 20.0, 60.0, 34.0)
 H_edif = st.sidebar.number_input("Altura promedio edificio H (m)", 2.0, 200.0, 12.0)
 theta = st.sidebar.slider("Inclinación de Techo θ (°)", 0, 45, 10)
 
 # --- GEOMETRÍA ---
-st.sidebar.subheader("📐 Geometría del Elemento")
-l_elem = st.sidebar.number_input("Largo del elemento (m)", 0.1, 50.0, 3.0)
-w_in = st.sidebar.number_input("Ancho tributario real (m)", 0.1, 50.0, 1.0)
+if modo == FACHADA:
+    st.sidebar.subheader("📐 Geometría del Elemento")
+    l_elem = st.sidebar.number_input("Largo del elemento (m)", 0.1, 50.0, 3.0)
+    w_in = st.sidebar.number_input("Ancho tributario real (m)", 0.1, 50.0, 1.0)
+else:
+    l_elem, w_in = 3.0, 1.0   # no se usan en parapetos/barandas
 w_trib = max(w_in, l_elem / 3)
 area_ef = l_elem * w_trib
 
-st.sidebar.info(f"**Área efectiva: {area_ef} m2**")
+if modo == FACHADA:
+    st.sidebar.info(f"**Área efectiva: {area_ef:.2f} m2**")
+    if w_in < (l_elem / 3):
+        st.sidebar.warning(f"⚠️ Ancho ajustado por norma a {w_trib:.2f}m (mín. 1/3 del largo)")
 
+# --- PARAPETOS Y BARANDAS (NCh 432:2025, 9.6 y Figura 45) ---
+ubic_baranda, en_techo = None, True
+if modo != FACHADA:
+    st.sidebar.subheader("🧱 Parapeto" if modo == PARAPETO else "🧱 Baranda")
+    with st.sidebar.expander("ℹ️ Nota Explicativa: Parapetos y barandas (9.6)"):
+        st.markdown(r"""
+        **NCh 432:2025, 9.6 – Ecuación (22):** $p = q_p\,K_d\,[(GC_p) - (GC_{pi})]$, con $q_p$ evaluada
+        en el punto más alto del elemento. Se consideran los dos casos de carga de la **Figura 45**:
 
-if w_in < (l_elem / 3):
-    st.sidebar.warning(f"⚠️ Ancho ajustado por norma a {w_trib:.2f}m (mín. 1/3 del largo)")
+        * **Caso A (parapeto de barlovento):** cara exterior con presión positiva de muro (zonas 4 o 5)
+          y cara interior con succión de borde o esquina de techo (zonas 2 o 3).
+        * **Caso B (parapeto de sotavento):** cara interior con presión positiva de muro y cara exterior
+          con succión de muro (zonas 4 o 5).
+
+        En un elemento de una sola hoja (muro macizo, vidrio, plancha) las presiones de ambas caras se
+        suman y $GC_{pi}$ se anula. Si el parapeto es **hueco**, cada revestimiento se verifica con $\pm GC_{pi}$.
+
+        **Barandas:** en borde de techo o azotea se tratan como parapeto (casos A y B). En balcones de
+        fachada se adopta el **caso B** (presión positiva de muro en una cara y succión de muro en la otra),
+        criterio de asimilación a parapeto aplicable a barandas de **paño lleno** (vidrio, plancha).
+        """)
+        _b = leer_imagen("F45.png")
+        if _b: st.image(_b, caption="Figura 45 - NCh 432:2025")
+    if modo == BARANDA:
+        ubic_baranda = st.sidebar.radio("Ubicación de la baranda",
+                                        ["Borde de techo / azotea", "Balcón o terraza en fachada"])
+    en_techo = (modo == PARAPETO) or (ubic_baranda == "Borde de techo / azotea")
+    h_elem = st.sidebar.number_input("Altura del parapeto hp (m)" if modo == PARAPETO else "Altura de la baranda hb (m)",
+                                     0.1, 5.0, 1.0 if modo == PARAPETO else 1.1, step=0.05)
+    if en_techo:
+        z_base_elem = H_edif
+    else:
+        z_base_elem = st.sidebar.number_input("Cota del piso del balcón sobre el terreno (m)", 0.0, 300.0,
+                                              max(0.0, H_edif - 3.0), step=0.5)
+    z_top = z_base_elem + h_elem
+    s_apoyo = st.sidebar.number_input("Separación entre montantes / apoyos s (m)", 0.1, 20.0, 1.2, step=0.1)
+    B_min = st.sidebar.number_input("Menor dimensión horizontal del edificio B (m)", 1.0, 500.0, 20.0,
+                                    help="Define el ancho a de las zonas de esquina (Figuras 24 y 40).")
+    es_hueco = st.sidebar.checkbox("Parapeto hueco (revestimientos independientes)", value=False,
+                                   help="Cada revestimiento se verifica con ±GCpi (Tabla 7) según la porosidad del parapeto.") if en_techo else False
+    gcpi_par = st.sidebar.selectbox("GCpi del parapeto (Tabla 7)", [0.18, 0.55, 0.0], index=0) if es_hueco else 0.0
+    g2_man = g3_man = None
+    if en_techo and theta > 7:
+        st.sidebar.warning("θ > 7°: ingrese los GCp de borde (zona 2) y esquina (zona 3) del techo desde las "
+                           "Figuras 27 a 32 (h ≤ 18,3 m) o 26 a 32, 35 y 36 (h > 18,3 m), para el área efectiva.")
+        g2_man = st.sidebar.number_input("GCp techo zona 2 (borde)", -6.0, 0.0, -2.3, step=0.1)
+        g3_man = st.sidebar.number_input("GCp techo zona 3 (esquina)", -6.0, 0.0, -3.2, step=0.1)
+    # Área efectiva del panel: lado mayor L y ancho no menor que L/3
+    L_par = max(h_elem, s_apoyo)
+    A_par = L_par * max(min(h_elem, s_apoyo), L_par / 3)
+    st.sidebar.info(f"**Cota superior z = {z_top:.2f} m · Área efectiva A = {A_par:.2f} m²**")
 
 # --- FACTOR TOPOGRÁFICO ---
 
@@ -159,7 +230,8 @@ with st.sidebar.expander("🏔️ Nota Explicativa: Factor Topográfico (Kzt)"):
 
     if st.button("Ver Diagramas de Relieve"):
         for img in ["F7.png", "F6.png"]:
-            if os.path.exists(img): st.image(img)
+            _b = leer_imagen(img)
+            if _b: st.image(_b)
 
 metodo = st.sidebar.radio("Cálculo de Kzt", ["Manual", "Calculado"])
 
@@ -378,6 +450,9 @@ nota_tecnica_cerramiento = gcpi_data[cerramiento_opcion][1]
 
 st.sidebar.info(f"**Factor GCpi asociado: ± {gc_pi_val}**")
 
+red10_muros = st.sidebar.checkbox("Reducir 10 % los GCp de muros (Figura 24, Nota 5)", value=False,
+                                  help="Aplica solo a edificios con h ≤ 18,3 m y θ ≤ 10°. Desactivado = conservador.")
+
 # --- MOTOR MATEMÁTICO ---
 def get_gcp(a, g_lo, g_hi, a_lo=0.9, a_hi=46.5):
     """Interpolación lineal en log10(A) entre a_lo y a_hi; constante fuera del rango."""
@@ -404,22 +479,65 @@ def q_de(z):
 qh = q_de(H_edif)
 edificio_alto = H_edif > 18.3
 
-P_MIN = 480 * 0.10197  # presión mínima de diseño para C&R: 480 N/m²
+P_MIN_N = 250.0                 # 9.2.2: presión neta mínima de diseño para C&R, 0,25 kN/m²
+P_MIN = P_MIN_N * 0.10197       # en kgf/m²
 
 def p_diseno(q, gcp, gcpi, qi=None):
     """p = q Kd (GCp) - qi Kd (GCpi), con GCpi en el signo más desfavorable y qi = qh (edificio cerrado).
-    Se aplica la presión mínima de 480 N/m² para C&R."""
+    Se aplica la presión neta mínima de 0,25 kN/m² para C&R (9.2.2)."""
     qi = qh if qi is None else qi
     p = q * Kd_val * gcp + (qi * Kd_val * gcpi if gcp >= 0 else -qi * Kd_val * gcpi)
     return float(np.sign(p) * max(abs(p), P_MIN)) if p != 0 else P_MIN
+
+# --- COEFICIENTES GCp DE MUROS Y TECHO (comunes a fachadas, parapetos y barandas) ---
+# Muros: (GCp para A <= 0,9 m², GCp para A >= 46,5 m²), interpolación en log10(A)
+if edificio_alto:
+    GC_MURO = {"z4p": (0.9, 0.6), "z5p": (0.9, 0.6), "z4n": (-0.9, -0.7), "z5n": (-1.8, -1.0)}   # Figura 40
+    fig_muro = "Figura 40"
+else:
+    GC_MURO = {"z4p": (1.0, 0.7), "z5p": (1.0, 0.7), "z4n": (-1.1, -0.8), "z5n": (-1.4, -0.8)}   # Figura 24
+    fig_muro = "Figura 24"
+reduccion_muros = (not edificio_alto) and theta <= 10 and red10_muros
+if reduccion_muros:   # Figura 24, Nota 5: reducción de 10 % cuando θ <= 10°
+    GC_MURO = {k: (0.9 * a, 0.9 * b) for k, (a, b) in GC_MURO.items()}
+
+# Techo: zonas 1, 2 y 3 (succión), entre 0,9 y 46,5 m²
+if edificio_alto:
+    GC_TECHO = {"z1": (-1.4, -0.9), "z2": (-2.3, -1.6), "z3": (-3.2, -2.3)}   # Figura 40 (θ <= 7°, Nota 6)
+    fig_techo = "Figura 40"
+    techo_valido = theta <= 7
+    aviso_techo = None if techo_valido else (
+        "θ > 7°: los coeficientes de techo de la Figura 40 aplican a techos con θ ≤ 7° (Nota 6). Para otros "
+        "ángulos usar las Figuras 26 a 32, 35 y 36 con qh. Los valores de techo mostrados no son válidos.")
+else:
+    techo_valido = theta <= 7
+    if techo_valido:
+        GC_TECHO = {"z1": (-1.7, -1.0), "z2": (-2.3, -1.4), "z3": (-3.2, -1.4)}   # Figura 26 (θ <= 7°)
+    else:   # coeficientes heredados, no verificados contra las Figuras 27 a 32
+        GC_TECHO = {"z1": (-0.9, -0.8, 1.0, 10.0), "z2": (-1.3, -1.2, 1.0, 10.0), "z3": (-2.0, -1.2, 1.0, 10.0)}
+    fig_techo = "Figura 26"
+    aviso_techo = None if techo_valido else (
+        "θ > 7°: los coeficientes de techo corresponden a la Figura 26 (θ ≤ 7°). Para techos con mayor pendiente "
+        "usar las Figuras 27 a 32. Los valores de techo mostrados son solo referenciales.")
+
+def gcp_techo(a, zona):
+    return get_gcp(a, *GC_TECHO[zona])
+
+def ancho_zona_esquina(b_min, h):
+    """Ancho a de las zonas de esquina de muro (Figura 24: h <= 18,3 m; Figura 40: h > 18,3 m)."""
+    if h > 18.3:
+        return max(0.10 * b_min, 0.9)
+    lim_h = 0.8 * h if (theta <= 7 and b_min > 90) else 0.4 * h
+    return max(min(0.10 * b_min, lim_h), 0.04 * b_min, 0.9)
 
 
 # =================================================================
 # 5. DESPLIEGUE TÉCNICO DE RESULTADOS Y FORMULACIÓN (CORREGIDO)
 # =================================================================
 
-# Ficha de Cerramiento Destacada
-st.markdown(f"""
+if modo == FACHADA:
+    # Ficha de Cerramiento Destacada
+    st.markdown(f"""
 <div class="classification-box">
     <strong>📋 Ficha Técnica de Cerramiento (NCh 432):</strong><br><br>
     <strong>Clasificación Seleccionada:</strong> {cerramiento_opcion}<br>
@@ -428,159 +546,346 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# Caja de Fórmulas y Ecuaciones
-st.markdown("### 📝 Ecuaciones de Diseño Aplicadas")
-st.latex(r"K_z = 2.41 \left(\frac{z}{z_g}\right)^{2/\alpha} \quad (z_{min} \le z \le z_g) \qquad \text{(Tabla 5, Nota 1; Tabla 6)}")
-st.latex(r"q_z = 0.613 \cdot I \cdot K_z \cdot K_{zt} \cdot K_e \cdot V^2 \qquad \text{(Ec. 2)}")
-st.latex(r"p = q \cdot K_d \cdot (GC_p) - q_i \cdot K_d \cdot (GC_{pi}) \geq 480\ \text{N/m}^2")
-st.caption(f"Kd = {Kd_val:.2f} se aplica a la presión neta (externa e interna), no a la presión de velocidad. Ke = {Ke_val:.3f} ({ke_metodo}).")
+    # Caja de Fórmulas y Ecuaciones
+    st.markdown("### 📝 Ecuaciones de Diseño Aplicadas")
+    st.latex(r"K_z = 2.41 \left(\frac{z}{z_g}\right)^{2/\alpha} \quad (z_{min} \le z \le z_g) \qquad \text{(Tabla 5, Nota 1; Tabla 6)}")
+    st.latex(r"q_z = 0.613 \cdot I \cdot K_z \cdot K_{zt} \cdot K_e \cdot V^2 \qquad \text{(Ec. 2)}")
+    st.latex(r"p = q \cdot K_d \cdot (GC_p) - q_i \cdot K_d \cdot (GC_{pi}) \qquad |p| \geq 250\ \text{N/m}^2\ \text{(9.2.2)}")
+    st.caption(f"Kd = {Kd_val:.2f} se aplica a la presión neta (externa e interna), no a la presión de velocidad. Ke = {Ke_val:.3f} ({ke_metodo}).")
 
-st.info(f"**Presión de Velocidad Calculada (qh):** {qh:.2f} kgf/m² · Kz = {kz:.3f} · Kzt = {Kzt_val:.3f} · "
-        f"{'Edificio alto (h > 18,3 m): coeficientes de la Figura 40' if edificio_alto else 'Edificio de baja altura (h ≤ 18,3 m): coeficientes de muros de la Figura 24'}")
+    st.info(f"**Presión de Velocidad Calculada (qh):** {qh:.2f} kgf/m² · Kz = {kz:.3f} · Kzt = {Kzt_val:.3f} · "
+            f"{'Edificio alto (h > 18,3 m): coeficientes de la Figura 40' if edificio_alto else 'Edificio de baja altura (h ≤ 18,3 m): coeficientes de muros de la Figura 24'}")
 
-# --- CÁLCULO DE COEFICIENTES GCp (DEFINICIÓN DE VARIABLES PARA PUNTO 6) ---
-# Coeficientes de muros: [GCp(A <= 0,9 m²), GCp(A >= 46,5 m²)]
-if edificio_alto:
-    # Figura 40 (h > 18,3 m)
-    GC_MURO = {"z4p": (0.9, 0.6), "z5p": (0.9, 0.6), "z4n": (-0.9, -0.7), "z5n": (-1.8, -1.0)}
-    fig_muro = "Figura 40"
-else:
-    # Figura 24 (h <= 18,3 m)
-    GC_MURO = {"z4p": (1.0, 0.7), "z5p": (1.0, 0.7), "z4n": (-1.1, -0.8), "z5n": (-1.4, -0.8)}
-    fig_muro = "Figura 24"
+    # --- CÁLCULO DE COEFICIENTES GCp (DEFINICIÓN DE VARIABLES PARA PUNTO 6) ---
+    z1, z2, z3 = gcp_techo(area_ef, "z1"), gcp_techo(area_ef, "z2"), gcp_techo(area_ef, "z3")
+    if reduccion_muros:
+        st.caption("GCp de muros reducidos en 10 % (Figura 24, Nota 5: h ≤ 18,3 m y θ ≤ 10°).")
 
-aviso_techo = None
-if edificio_alto:
-    # Figura 40, techos con θ <= 10°: zonas 1, 2 y 3 entre 0,9 y 46,5 m²
-    z1 = get_gcp(area_ef, -1.4, -0.9)
-    z2 = get_gcp(area_ef, -2.3, -1.6)
-    z3 = get_gcp(area_ef, -3.2, -2.3)
-    if theta > 10:
-        aviso_techo = ("θ > 10°: la Figura 40 aplica a techos con θ ≤ 10° (Nota 6). Los coeficientes de techo "
-                       "mostrados no son válidos; usar las figuras de techos de baja altura con qh.")
-else:
-    # Techos de baja altura: coeficientes heredados (no verificados contra las figuras de techos de NCh 432:2025)
-    z1 = get_gcp(area_ef, -1.0, -0.9, 1.0, 10.0) if theta <= 7 else get_gcp(area_ef, -0.9, -0.8, 1.0, 10.0)
-    z2 = get_gcp(area_ef, -1.8, -1.1, 1.0, 10.0) if theta <= 7 else get_gcp(area_ef, -1.3, -1.2, 1.0, 10.0)
-    z3 = get_gcp(area_ef, -2.8, -1.1, 1.0, 10.0) if theta <= 7 else get_gcp(area_ef, -2.0, -1.2, 1.0, 10.0)
-    aviso_techo = ("Coeficientes de techo para h ≤ 18,3 m no verificados contra las figuras de techos de "
-                   "NCh 432:2025 (zonas 1', 1, 2 y 3). Usar solo como referencia.")
+    z4_pos, z5_pos = get_gcp(area_ef, *GC_MURO["z4p"]), get_gcp(area_ef, *GC_MURO["z5p"])
+    z4_neg, z5_neg = get_gcp(area_ef, *GC_MURO["z4n"]), get_gcp(area_ef, *GC_MURO["z5n"])
+    if aviso_techo:
+        st.warning(aviso_techo)
 
-z4_pos, z5_pos = get_gcp(area_ef, *GC_MURO["z4p"]), get_gcp(area_ef, *GC_MURO["z5p"])
-z4_neg, z5_neg = get_gcp(area_ef, *GC_MURO["z4n"]), get_gcp(area_ef, *GC_MURO["z5n"])
-if aviso_techo:
-    st.warning(aviso_techo)
+    # Tabulación de Resultados
+    col_res, col_plt = st.columns([1, 1.3])
 
-# Tabulación de Resultados
-col_res, col_plt = st.columns([1, 1.3])
-
-with col_res:
-    st.markdown("**Resumen de Presiones Netas por Zona**")
+    with col_res:
+        st.markdown("**Resumen de Presiones Netas por Zona**")
     
-    # Muros laterales y de sotavento quedan cubiertos por la succión de Zonas 4 y 5 (C&R)
-    zonas = [
-        "Z1 (Techo Centro - Succión)", "Z2 (Techo Borde - Succión)", "Z3 (Techo Esq - Succión)",
-        "Z4 (Muro - Sobrepresión)", "Z4 (Muro - Succión)",
-        "Z5 (Muro Esq - Sobrepresión)", "Z5 (Muro Esq - Succión)",
-    ]
-    gcp_vals = [z1, z2, z3, z4_pos, z4_neg, z5_pos, z5_neg]
+        # Muros laterales y de sotavento quedan cubiertos por la succión de Zonas 4 y 5 (C&R)
+        zonas = [
+            "Z1 (Techo Centro - Succión)", "Z2 (Techo Borde - Succión)", "Z3 (Techo Esq - Succión)",
+            "Z4 (Muro - Sobrepresión)", "Z4 (Muro - Succión)",
+            "Z5 (Muro Esq - Sobrepresión)", "Z5 (Muro Esq - Succión)",
+        ]
+        gcp_vals = [z1, z2, z3, z4_pos, z4_neg, z5_pos, z5_neg]
     
-    p_netas = []
-    for g in gcp_vals:
-        p_netas.append(round(p_diseno(qh, g, gc_pi_val), 2))
+        p_netas = []
+        for g in gcp_vals:
+            p_netas.append(round(p_diseno(qh, g, gc_pi_val), 2))
 
-    df_res = pd.DataFrame({
-        "Zona de Análisis": zonas,
-        "GCp (Externo)": [round(z, 3) for z in gcp_vals],
-        "GCpi (Interno)": [gc_pi_val] * len(zonas),
-        "Presión Neta (kgf/m²)": p_netas
-    })
-    st.table(df_res)
+        df_res = pd.DataFrame({
+            "Zona de Análisis": zonas,
+            "GCp (Externo)": [round(z, 3) for z in gcp_vals],
+            "GCpi (Interno)": [gc_pi_val] * len(zonas),
+            "Presión Neta (kgf/m²)": p_netas
+        })
+        st.table(df_res)
 
-with col_plt:
+    with col_plt:
+        areas = np.logspace(-1, 2, 200)
+        fig, ax = plt.subplots(figsize=(10, 7))
+        # Curvas de Succión
+        ax.plot(areas, [get_gcp(a, *GC_MURO["z4n"]) for a in areas], label='Z4 Succión', color='green', lw=2)
+        ax.plot(areas, [get_gcp(a, *GC_MURO["z5n"]) for a in areas], label='Z5 Succión', color='red', lw=2)
+        # Curvas de Sobrepresión
+        ax.plot(areas, [get_gcp(a, *GC_MURO["z4p"]) for a in areas], label='Z4 Sobrepresión', color='green', lw=2, ls=':')
+        ax.plot(areas, [get_gcp(a, *GC_MURO["z5p"]) for a in areas], label='Z5 Sobrepresión', color='red', lw=1.5, ls='--')
+        for a_l in (0.9, 46.5):
+            ax.axvline(a_l, color='gray', lw=0.8, ls='--')
+
+        for z_v in [z4_pos, z4_neg, z5_pos, z5_neg]:
+            ax.scatter([area_ef], [z_v], color='black', s=40, zorder=10)
+
+        ax.set_xscale('log')
+        ax.set_title(f"Coeficientes GCp de muros - {fig_muro} NCh 432:2025", fontsize=11)
+        ax.set_xlabel("Área efectiva de viento A (m²)"); ax.set_ylabel("Coeficiente GCp")
+        ax.axhline(0, color='black', lw=1); ax.grid(True, which="both", alpha=0.3)
+        ax.legend(fontsize='x-small', loc='center left', bbox_to_anchor=(1, 0.5))
+        st.pyplot(fig)
+
+    # =================================================================
+    # 6. DISTRIBUCIÓN DE PRESIONES NETAS: SINCRONIZADO Y COMPLETO
+    # =================================================================
+    st.divider()
+    st.subheader("📊 Perfil de Presiones Netas (NCh 432): Barlovento vs Sotavento")
+
+    # Coeficiente típico para paredes laterales (Succión constante)
+    alturas_perfil = np.linspace(0.1, H_edif, 50)
+    p_barlo_4, p_barlo_5 = [], [] 
+    p_sota_4, p_sota_5 = [], [] 
+
+    for z_alt in alturas_perfil:
+        # h > 18,3 m: sobrepresión con qz (Figura 40, Nota 4); h <= 18,3 m: qh uniforme (Figura 24)
+        q_bar = q_de(z_alt) if edificio_alto else qh
+        p_barlo_4.append(p_diseno(q_bar, z4_pos, gc_pi_val))
+        p_barlo_5.append(p_diseno(q_bar, z5_pos, gc_pi_val))
+    
+        # SUCCIÓN (-) - Constante, evaluada con qh
+        p_sota_4.append(p_diseno(qh, z4_neg, gc_pi_val))
+        p_sota_5.append(p_diseno(qh, z5_neg, gc_pi_val))
+
+    # Renderizado Gráfico Profesional
+    fig_alt, ax_alt = plt.subplots(figsize=(12, 8))
+
+    # Graficar Barlovento (Derecha)
+    ax_alt.plot(p_barlo_4, alturas_perfil, label="Z4 Sobrepresión", color='darkgreen', lw=2)
+    ax_alt.plot(p_barlo_5, alturas_perfil, label="Z5 Sobrepresión", color='limegreen', lw=2, ls='--')
+
+    # Graficar Succión (Izquierda)
+    ax_alt.plot(p_sota_4, alturas_perfil, label="Z4 Succión (qh)", color='blue', lw=2)
+    ax_alt.plot(p_sota_5, alturas_perfil, label="Z5 Succión (qh)", color='darkblue', lw=3)
+
+    # Configuración del Eje y Estética
+    ax_alt.axvline(0, color='red', lw=2) 
+    ax_alt.set_title(f"Perfil de Presiones Netas de Diseño | V = {V} m/s", fontsize=14)
+    ax_alt.set_xlabel("Presión Neta [kgf/m²] <-- SUCCIÓN | SOBREPRESIÓN -->", fontsize=12)
+    ax_alt.set_ylabel("Altura sobre N.N.T. [m]", fontsize=12)
+
+    # Ajuste dinámico de límites
+    max_p = max(max(p_barlo_4), max(p_barlo_5), abs(min(p_sota_5))) * 1.2
+    ax_alt.set_xlim(-max_p, max_p)
+
+    ax_alt.grid(True, which='both', ls='--', alpha=0.5)
+    ax_alt.legend(loc='upper right', fontsize='small', frameon=True)
+
+    st.pyplot(fig_alt)
+
+    st.write("📌 **Interpretación**: Las curvas a la izquierda representan succiones, evaluadas con qh y uniformes en altura; "
+             "cubren muros de sotavento y laterales. La sobrepresión se evalúa con qz en edificios con h > 18,3 m "
+             "(Figura 40, Nota 4) y con qh en edificios de baja altura. Se aplica la presión neta mínima de 250 N/m² (9.2.2).")
+
+    # =================================================================
+    # 7. ESQUEMAS NORMATIVOS Y REFERENCIAS FINALES
+    # =================================================================
+    st.divider()
+    col_img1, col_img2 = st.columns(2)
+    with col_img1:
+        st.subheader("📍 Identificación de Zonas")
+        if leer_imagen("F8.png"): st.image(leer_imagen("F8.png"))
+    with col_img2:
+        st.subheader("📍 Esquema Isométrico")
+        if leer_imagen("F12.png"): st.image(leer_imagen("F12.png"))
+
+# =================================================================
+# 6b. PARAPETOS Y BARANDAS (NCh 432:2025, 9.6, Ecuación 22 y Figura 45)
+# =================================================================
+KGF_A_KN = 0.00980665
+
+def calcular_parapeto():
+    """Presiones de diseño en parapetos y barandas según 9.6 (Ec. 22) y Figura 45.
+    Cara 1 = cara que recibe la presión positiva; cara 2 = cara opuesta (succión).
+    Presión neta del elemento de una hoja: p = qp Kd [(GCp)cara1 - (GCp)cara2] (GCpi se anula)."""
+    qp = q_de(z_top)
+    g = {
+        "4p": get_gcp(A_par, *GC_MURO["z4p"]), "5p": get_gcp(A_par, *GC_MURO["z5p"]),
+        "4n": get_gcp(A_par, *GC_MURO["z4n"]), "5n": get_gcp(A_par, *GC_MURO["z5n"]),
+    }
+    if en_techo:
+        if g2_man is None:
+            g["2r"], g["3r"] = gcp_techo(A_par, "z2"), gcp_techo(A_par, "z3")
+        else:
+            g["2r"], g["3r"] = g2_man, g3_man
+
+    def caso(cod, zona, g1, g2, txt1, txt2, sentido):
+        p1, p2 = qp * Kd_val * g1, qp * Kd_val * g2
+        pn = qp * Kd_val * (g1 - g2)
+        pn_d = max(pn, P_MIN)
+        d = dict(caso=cod, zona=zona, g1=g1, g2=g2, txt1=txt1, txt2=txt2, p1=p1, p2=p2,
+                 pn=pn, pn_d=pn_d, sentido=sentido,
+                 w=pn_d * h_elem, F=pn_d * h_elem * s_apoyo, M=pn_d * h_elem * s_apoyo * h_elem / 2)
+        # Parapeto hueco: cada revestimiento con ±GCpi en el signo más desfavorable
+        d["p1i"] = max(qp * Kd_val * (g1 + gcpi_par), P_MIN)
+        d["p2i"] = min(qp * Kd_val * (g2 - gcpi_par), -P_MIN)
+        return d
+
+    casos = []
+    if en_techo:
+        casos.append(caso("A", "Típica (muro 4 + techo 2)", g["4p"], g["2r"], "Exterior: muro zona 4 (+)",
+                          "Interior: techo zona 2 (-)", "hacia el techo"))
+        casos.append(caso("A", "Esquina (muro 5 + techo 3)", g["5p"], g["3r"], "Exterior: muro zona 5 (+)",
+                          "Interior: techo zona 3 (-)", "hacia el techo"))
+        casos.append(caso("B", "Típica (muro 4 + muro 4)", g["4p"], g["4n"], "Interior: muro zona 4 (+)",
+                          "Exterior: muro zona 4 (-)", "hacia el exterior"))
+        casos.append(caso("B", "Esquina (muro 5 + muro 5)", g["5p"], g["5n"], "Interior: muro zona 5 (+)",
+                          "Exterior: muro zona 5 (-)", "hacia el exterior"))
+    else:
+        casos.append(caso("B", "Típica (muro 4 + muro 4)", g["4p"], g["4n"], "Cara cargada: muro zona 4 (+)",
+                          "Cara opuesta: muro zona 4 (-)", "en ambos sentidos"))
+        casos.append(caso("B", "Esquina (muro 5 + muro 5)", g["5p"], g["5n"], "Cara cargada: muro zona 5 (+)",
+                          "Cara opuesta: muro zona 5 (-)", "en ambos sentidos"))
+    gob = max(casos, key=lambda c: c["pn_d"])
+    return dict(qp=qp, kz_top=kz_de(z_top), kzt_top=kzt_de(z_top), g=g, casos=casos, gob=gob,
+                a_esq=ancho_zona_esquina(B_min, H_edif))
+
+
+def _flechas(ax, x0, x1, ys, color):
+    for y in ys:
+        ax.annotate("", xy=(x1, y), xytext=(x0, y),
+                    arrowprops=dict(arrowstyle="-|>", color=color, lw=1.4, mutation_scale=11))
+
+
+def dibujar_esquema_parapeto(res):
+    """Esquema tipo Figura 45 con las presiones de la zona típica y de esquina."""
+    c = {cs["caso"] + cs["zona"][:3]: cs for cs in res["casos"]}
+    n = 2 if en_techo else 1
+    fig, axs = plt.subplots(1, n, figsize=(6.0 * n, 4.8))
+    axs = np.atleast_1d(axs)
+    ys = np.linspace(0.12, 0.88, 6)
+    t = 0.07
+    def fmt(cs_t, cs_e, clave):
+        return f"{cs_t[clave]:+.1f} (típ.) / {cs_e[clave]:+.1f} (esq.)"
+    if en_techo:
+        for ax, cod in zip(axs, ["A", "B"]):
+            cs_t, cs_e = c[cod + "Típ"], c[cod + "Esq"]
+            ax.add_patch(plt.Rectangle((0, -0.9), t, 1.9, color="#94a3b8", ec="#1e293b"))
+            ax.plot([t, 1.7], [0, 0], color="#1e293b", lw=3)
+            ax.text(1.65, -0.08, "Techo", ha="right", va="top", fontsize=8, color="#334155")
+            ax.text(-0.05, -0.85, "Muro\nexterior", ha="right", va="bottom", fontsize=8.5, color="#334155")
+            for xr in np.linspace(0.8, 1.55, 4):
+                ax.annotate("", xy=(xr, 0.32), xytext=(xr, 0.04),
+                            arrowprops=dict(arrowstyle="-|>", color="#cbd5e1", lw=1.0))
+            if cod == "A":
+                _flechas(ax, -0.55, -0.02, ys, "#b91c1c")
+                _flechas(ax, t + 0.02, t + 0.5, ys, "#1d4ed8")
+                ax.text(-0.04, 1.08, "p1 (cara exterior)\n" + fmt(cs_t, cs_e, "p1"), fontsize=8.5, color="#b91c1c", ha="right")
+                ax.text(t + 0.05, 1.08, "p2 (cara interior)\n" + fmt(cs_t, cs_e, "p2"), fontsize=8.5, color="#1d4ed8")
+                ax.annotate("", xy=(0.85, -0.5), xytext=(0.2, -0.5),
+                            arrowprops=dict(arrowstyle="-|>", color="black", lw=2.2))
+                titulo = "Caso A: parapeto de barlovento"
+            else:
+                _flechas(ax, t + 0.55, t + 0.02, ys, "#b91c1c")
+                _flechas(ax, -0.02, -0.5, ys, "#1d4ed8")
+                ax.text(t + 0.05, 1.08, "p3 (cara interior)\n" + fmt(cs_t, cs_e, "p1"), fontsize=8.5, color="#b91c1c")
+                ax.text(-0.04, 1.08, "p4 (cara exterior)\n" + fmt(cs_t, cs_e, "p2"), fontsize=8.5, color="#1d4ed8", ha="right")
+                ax.annotate("", xy=(0.2, -0.5), xytext=(0.85, -0.5),
+                            arrowprops=dict(arrowstyle="-|>", color="black", lw=2.2))
+                titulo = "Caso B: parapeto de sotavento"
+            ax.text(0.2, -0.72, f"p neta = {cs_t['pn_d']:.1f} (típ.) / {cs_e['pn_d']:.1f} (esq.) kgf/m²\n"
+                    f"sentido: {cs_t['sentido']}", fontsize=9, fontweight="bold", va="top", ha="left")
+            ax.set_title(titulo, fontsize=11)
+            ax.set_xlim(-1.15, 1.8); ax.set_ylim(-1.0, 1.35)
+    else:
+        ax = axs[0]
+        cs_t, cs_e = c["BTíp"], c["BEsq"]
+        ax.add_patch(plt.Rectangle((1.2, -1.0), 0.12, 2.35, color="#cbd5e1", ec="#1e293b"))
+        ax.text(1.4, 0.2, "Fachada", rotation=90, fontsize=8, color="#334155", va="center")
+        ax.plot([0, 1.2], [0, 0], color="#1e293b", lw=4)
+        ax.text(0.6, -0.08, "Losa del balcón", ha="center", va="top", fontsize=8, color="#334155")
+        ax.add_patch(plt.Rectangle((0, 0), t, 1.0, color="#94a3b8", ec="#1e293b"))
+        _flechas(ax, -0.55, -0.02, ys, "#b91c1c")
+        _flechas(ax, t + 0.02, t + 0.5, ys, "#1d4ed8")
+        ax.text(-0.9, 1.1, "Cara cargada (+)\n" + fmt(cs_t, cs_e, "p1"), fontsize=8.5, color="#b91c1c")
+        ax.text(t + 0.05, 1.1, "Cara opuesta (-)\n" + fmt(cs_t, cs_e, "p2"), fontsize=8.5, color="#1d4ed8")
+        ax.annotate("", xy=(0.7, -0.55), xytext=(0.05, -0.55),
+                    arrowprops=dict(arrowstyle="<|-|>", color="black", lw=2.2))
+        ax.text(-0.9, -0.72, f"p neta = {cs_t['pn_d']:.1f} (típ.) / {cs_e['pn_d']:.1f} (esq.) kgf/m²\n"
+                "sentido: ambos (hacia el balcón y hacia el exterior)", fontsize=9, fontweight="bold", va="top")
+        ax.set_title("Baranda de balcón: criterio caso B (Figura 45)", fontsize=11)
+        ax.set_xlim(-0.95, 1.6); ax.set_ylim(-1.0, 1.4)
+    for ax in axs:
+        ax.set_aspect("equal"); ax.axis("off")
+    fig.suptitle(f"Presiones de diseño sobre {('el parapeto' if modo == PARAPETO else 'la baranda')} [kgf/m²]  ·  "
+                 f"qp = {res['qp']:.1f} kgf/m² (z = {z_top:.2f} m)", fontsize=10)
+    fig.tight_layout()
+    return fig
+
+
+def dibujar_curvas_parapeto(res):
+    """Coeficiente neto (GCp)cara1 - (GCp)cara2 en función del área efectiva."""
     areas = np.logspace(-1, 2, 200)
-    fig, ax = plt.subplots(figsize=(10, 7))
-    # Curvas de Succión
-    ax.plot(areas, [get_gcp(a, *GC_MURO["z4n"]) for a in areas], label='Z4 Succión', color='green', lw=2)
-    ax.plot(areas, [get_gcp(a, *GC_MURO["z5n"]) for a in areas], label='Z5 Succión', color='red', lw=2)
-    # Curvas de Sobrepresión
-    ax.plot(areas, [get_gcp(a, *GC_MURO["z4p"]) for a in areas], label='Z4 Sobrepresión', color='green', lw=2, ls=':')
-    ax.plot(areas, [get_gcp(a, *GC_MURO["z5p"]) for a in areas], label='Z5 Sobrepresión', color='red', lw=1.5, ls='--')
+    fig, ax = plt.subplots(figsize=(9, 5.5))
+    gm = lambda k, a: get_gcp(a, *GC_MURO[k])
+    if en_techo and g2_man is None:
+        ax.plot(areas, [gm("z4p", a) - gcp_techo(a, "z2") for a in areas], color="#b91c1c", lw=2, label="Caso A típica (4 + 2)")
+        ax.plot(areas, [gm("z5p", a) - gcp_techo(a, "z3") for a in areas], color="#b91c1c", lw=2, ls="--", label="Caso A esquina (5 + 3)")
+    ax.plot(areas, [gm("z4p", a) - gm("z4n", a) for a in areas], color="#1d4ed8", lw=2, label="Caso B típica (4 + 4)")
+    ax.plot(areas, [gm("z5p", a) - gm("z5n", a) for a in areas], color="#1d4ed8", lw=2, ls="--", label="Caso B esquina (5 + 5)")
+    for cs in res["casos"]:
+        ax.scatter([A_par], [cs["g1"] - cs["g2"]], color="black", s=36, zorder=10)
+    ax.axvline(A_par, color="gray", lw=0.8, ls=":")
     for a_l in (0.9, 46.5):
-        ax.axvline(a_l, color='gray', lw=0.8, ls='--')
+        ax.axvline(a_l, color="gray", lw=0.6, ls="--")
+    ax.set_xscale("log")
+    ax.set_xlabel("Área efectiva de viento A (m²)")
+    ax.set_ylabel("Coeficiente neto (GCp)cara 1 − (GCp)cara 2")
+    ax.set_title(f"Coeficiente neto {('del parapeto' if modo == PARAPETO else 'de la baranda')} "
+                 f"({fig_muro}" + (f" y {fig_techo})" if en_techo else ")"), fontsize=11)
+    ax.grid(True, which="both", alpha=0.3)
+    ax.legend(fontsize="small")
+    fig.tight_layout()
+    return fig
 
-    for z_v in [z4_pos, z4_neg, z5_pos, z5_neg]:
-        ax.scatter([area_ef], [z_v], color='black', s=40, zorder=10)
 
-    ax.set_xscale('log')
-    ax.set_title(f"Coeficientes GCp de muros - {fig_muro} NCh 432:2025", fontsize=11)
-    ax.set_xlabel("Área efectiva de viento A (m²)"); ax.set_ylabel("Coeficiente GCp")
-    ax.axhline(0, color='black', lw=1); ax.grid(True, which="both", alpha=0.3)
-    ax.legend(fontsize='x-small', loc='center left', bbox_to_anchor=(1, 0.5))
-    st.pyplot(fig)
+if modo != FACHADA:
+    res_par = calcular_parapeto()
+    nombre_el = "parapeto" if modo == PARAPETO else "baranda"
+    st.markdown(f"### 🧱 Presión de viento sobre {('parapetos' if modo == PARAPETO else 'barandas')} (NCh 432:2025, 9.6)")
+    st.latex(r"q_p = 0.613 \cdot I \cdot K_z \cdot K_{zt} \cdot K_e \cdot V^2 \quad (z = \text{punto más alto}) \qquad \text{(Ec. 2)}")
+    st.latex(r"p = q_p \cdot K_d \cdot \left[(GC_p) - (GC_{pi})\right] \qquad \text{(Ec. 22)}")
+    st.latex(r"p_{neta} = q_p \cdot K_d \cdot \left[(GC_p)_{cara\,1} - (GC_p)_{cara\,2}\right] \;\geq\; 250\ \text{N/m}^2"
+             r"\qquad w = p_{neta}\,h \qquad F = p_{neta}\,h\,s \qquad M = F\,h/2")
+    st.info(f"**qp = {res_par['qp']:.2f} kgf/m²** en z = {z_top:.2f} m · Kz = {res_par['kz_top']:.3f} · "
+            f"Kzt = {res_par['kzt_top']:.3f} · Ke = {Ke_val:.3f} · Kd = {Kd_val:.2f} · A = {A_par:.2f} m² · "
+            f"Muros: {fig_muro}" + (f" · Techo: {fig_techo if g2_man is None else 'GCp ingresados'}" if en_techo else "") +
+            f" · Ancho de esquina a = {res_par['a_esq']:.2f} m")
+    if not en_techo:
+        st.warning("Baranda de balcón: se adopta el **caso B de la Figura 45** (presión positiva de muro en una cara "
+                   "y succión de muro en la cara opuesta), actuando en ambos sentidos. Criterio de asimilación a "
+                   "parapeto (9.6) para barandas de paño lleno; para barandas abiertas resulta conservador.")
+    if reduccion_muros:
+        st.caption("GCp de muros reducidos en 10 % (Figura 24, Nota 5).")
 
-# =================================================================
-# 6. DISTRIBUCIÓN DE PRESIONES NETAS: SINCRONIZADO Y COMPLETO
-# =================================================================
-st.divider()
-st.subheader("📊 Perfil de Presiones Netas (NCh 432): Barlovento vs Sotavento")
+    df_par = pd.DataFrame({
+        "Caso": [c["caso"] for c in res_par["casos"]],
+        "Zona": [c["zona"] for c in res_par["casos"]],
+        "GCp cara 1": [round(c["g1"], 3) for c in res_par["casos"]],
+        "GCp cara 2": [round(c["g2"], 3) for c in res_par["casos"]],
+        "p cara 1 (kgf/m²)": [round(c["p1"], 2) for c in res_par["casos"]],
+        "p cara 2 (kgf/m²)": [round(c["p2"], 2) for c in res_par["casos"]],
+        "p neta (kgf/m²)": [round(c["pn_d"], 2) for c in res_par["casos"]],
+        "w (kgf/m)": [round(c["w"], 1) for c in res_par["casos"]],
+        "F montante (kgf)": [round(c["F"], 1) for c in res_par["casos"]],
+        "M base (kgf·m)": [round(c["M"], 1) for c in res_par["casos"]],
+    })
+    st.table(df_par)
+    gob = res_par["gob"]
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("p neta de diseño", f"{gob['pn_d']:.1f} kgf/m²", f"Caso {gob['caso']} · {gob['zona'].split(' (')[0]}", delta_color="off")
+    m2.metric(f"Carga lineal w (h = {h_elem:.2f} m)", f"{gob['w']:.1f} kgf/m")
+    m3.metric(f"Fuerza por montante (s = {s_apoyo:.2f} m)", f"{gob['F']:.1f} kgf")
+    m4.metric("Momento en la base del montante", f"{gob['M']:.1f} kgf·m")
+    st.caption("Cara 1: cara con presión positiva; cara 2: cara opuesta con succión. Ambas actúan en el mismo sentido "
+               "y se suman en la presión neta; GCpi se anula en un elemento de una sola hoja. w, F y M suponen la "
+               "presión neta uniforme sobre la altura del elemento, con el montante en voladizo desde su base.")
+    if es_hueco:
+        st.markdown(f"**Parapeto hueco: presión sobre cada revestimiento con GCpi = ±{gcpi_par}**")
+        st.table(pd.DataFrame({
+            "Caso": [c["caso"] for c in res_par["casos"]],
+            "Zona": [c["zona"] for c in res_par["casos"]],
+            "Revestimiento cara 1 (kgf/m²)": [round(c["p1i"], 2) for c in res_par["casos"]],
+            "Revestimiento cara 2 (kgf/m²)": [round(c["p2i"], 2) for c in res_par["casos"]],
+        }))
+    if en_techo:
+        st.caption("Figura 26, Nota 5 / Figura 40, Nota 7: con parapeto de 0,9 m o más en todo el perímetro, la zona 3 "
+                   "del techo puede tratarse como zona 2 para el diseño del techo. Para el diseño del propio parapeto "
+                   "se conservan los coeficientes de borde y esquina sin reducir.")
 
-# Coeficiente típico para paredes laterales (Succión constante)
-alturas_perfil = np.linspace(0.1, H_edif, 50)
-p_barlo_4, p_barlo_5 = [], [] 
-p_sota_4, p_sota_5 = [], [] 
+    fig_par_esq = dibujar_esquema_parapeto(res_par)
+    st.pyplot(fig_par_esq)
+    fig_par_curv = dibujar_curvas_parapeto(res_par)
+    st.pyplot(fig_par_curv)
 
-for z_alt in alturas_perfil:
-    # h > 18,3 m: sobrepresión con qz (Figura 40, Nota 4); h <= 18,3 m: qh uniforme (Figura 24)
-    q_bar = q_de(z_alt) if edificio_alto else qh
-    p_barlo_4.append(p_diseno(q_bar, z4_pos, gc_pi_val))
-    p_barlo_5.append(p_diseno(q_bar, z5_pos, gc_pi_val))
-    
-    # SUCCIÓN (-) - Constante, evaluada con qh
-    p_sota_4.append(p_diseno(qh, z4_neg, gc_pi_val))
-    p_sota_5.append(p_diseno(qh, z5_neg, gc_pi_val))
-
-# Renderizado Gráfico Profesional
-fig_alt, ax_alt = plt.subplots(figsize=(12, 8))
-
-# Graficar Barlovento (Derecha)
-ax_alt.plot(p_barlo_4, alturas_perfil, label="Z4 Sobrepresión", color='darkgreen', lw=2)
-ax_alt.plot(p_barlo_5, alturas_perfil, label="Z5 Sobrepresión", color='limegreen', lw=2, ls='--')
-
-# Graficar Succión (Izquierda)
-ax_alt.plot(p_sota_4, alturas_perfil, label="Z4 Succión (qh)", color='blue', lw=2)
-ax_alt.plot(p_sota_5, alturas_perfil, label="Z5 Succión (qh)", color='darkblue', lw=3)
-
-# Configuración del Eje y Estética
-ax_alt.axvline(0, color='red', lw=2) 
-ax_alt.set_title(f"Perfil de Presiones Netas de Diseño | V = {V} m/s", fontsize=14)
-ax_alt.set_xlabel("Presión Neta [kgf/m²] <-- SUCCIÓN | SOBREPRESIÓN -->", fontsize=12)
-ax_alt.set_ylabel("Altura sobre N.N.T. [m]", fontsize=12)
-
-# Ajuste dinámico de límites
-max_p = max(max(p_barlo_4), max(p_barlo_5), abs(min(p_sota_5))) * 1.2
-ax_alt.set_xlim(-max_p, max_p)
-
-ax_alt.grid(True, which='both', ls='--', alpha=0.5)
-ax_alt.legend(loc='upper right', fontsize='small', frameon=True)
-
-st.pyplot(fig_alt)
-
-st.write("📌 **Interpretación**: Las curvas a la izquierda representan succiones, evaluadas con qh y uniformes en altura; "
-         "cubren muros de sotavento y laterales. La sobrepresión se evalúa con qz en edificios con h > 18,3 m "
-         "(Figura 40, Nota 4) y con qh en edificios de baja altura. Se aplica la presión mínima de 480 N/m².")
-
-# =================================================================
-# 7. ESQUEMAS NORMATIVOS Y REFERENCIAS FINALES
-# =================================================================
-st.divider()
-col_img1, col_img2 = st.columns(2)
-with col_img1:
-    st.subheader("📍 Identificación de Zonas")
-    if os.path.exists("F8.png"): st.image("F8.png")
-with col_img2:
-    st.subheader("📍 Esquema Isométrico")
-    if os.path.exists("F12.png"): st.image("F12.png")
 
 # =================================================================
 # 7b. MEMORIA DE CÁLCULO EN PDF (NCh 432:2025) - RESULTADOS + GRÁFICOS
@@ -622,8 +927,9 @@ def _fig_png(figura):
 class MemoriaViento(FPDF):
     NAVY = (26, 58, 92)
     def header(self):
-        if os.path.exists("Logo.png"):
-            self.image("Logo.png", x=12, y=8, h=11)
+        _logo = leer_imagen("Logo.png")
+        if _logo:
+            self.image(io.BytesIO(_logo), x=12, y=8, h=11)
         self.set_font("Helvetica", "B", 9)
         self.set_text_color(*self.NAVY)
         self.set_xy(60, 9)
@@ -712,8 +1018,10 @@ def generar_pdf_viento():
 
     # --- Portada ---
     pdf.set_font("Times", "B", 17)
-    pdf.multi_cell(0, 8, _txt("Memoria de cálculo - Determinación de presiones de viento según NCh 432:2025"),
-                   new_x="LMARGIN", new_y="NEXT")
+    titulo_mem = {FACHADA: "Determinación de presiones de viento según NCh 432:2025",
+                  PARAPETO: "Presiones de viento sobre parapetos según NCh 432:2025",
+                  BARANDA: "Presiones de viento sobre barandas según NCh 432:2025"}[modo]
+    pdf.multi_cell(0, 8, _txt("Memoria de cálculo - " + titulo_mem), new_x="LMARGIN", new_y="NEXT")
     pdf.set_font("Helvetica", "", 9)
     pdf.set_text_color(91, 104, 118)
     pdf.cell(0, 5, _txt(f"{mem_proyecto}" + (f" · Mandante: {mem_mandante}" if mem_mandante else "")),
@@ -728,16 +1036,29 @@ def generar_pdf_viento():
 
     # --- 1. Objeto ---
     pdf.h2("1. Objeto y alcance")
-    pdf.p(f"Se determinan las presiones de diseño del viento sobre componentes y revestimientos (C&R) de un "
-          f"edificio de altura media h = {_n(H_edif, 1)} m, con techo de inclinación {theta}°, para un elemento de "
-          f"área efectiva {_n(area_ef, 2)} m². Se reportan la presión de velocidad, las presiones netas por zona "
-          f"y el perfil de presiones en altura para barlovento, sotavento y caras laterales.")
+    if modo == FACHADA:
+        pdf.p(f"Se determinan las presiones de diseño del viento sobre componentes y revestimientos (C&R) de un "
+              f"edificio de altura media h = {_n(H_edif, 1)} m, con techo de inclinación {theta}°, para un elemento de "
+              f"área efectiva {_n(area_ef, 2)} m². Se reportan la presión de velocidad, las presiones netas por zona "
+              f"y el perfil de presiones en altura para barlovento, sotavento y caras laterales.")
+    else:
+        ubic_txt = ("en el borde del techo" if en_techo else
+                    f"en un balcón de fachada, con piso a {_n(z_base_elem, 2)} m sobre el terreno")
+        pdf.p(f"Se determinan las presiones de diseño del viento sobre {('un parapeto' if modo == PARAPETO else 'una baranda')} "
+              f"de altura {_n(h_elem, 2)} m ubicado {ubic_txt}, en un edificio de altura media h = {_n(H_edif, 1)} m "
+              f"(componentes y revestimientos, NCh 432:2025, 9.6). Se reportan la presión de velocidad en el punto más "
+              f"alto del elemento, las presiones sobre cada cara y la presión neta para los casos de carga de la "
+              f"Figura 45, junto con la carga lineal, la fuerza y el momento en la base de los montantes, separados "
+              f"{_n(s_apoyo, 2)} m.")
 
     # --- 2. Normativa ---
     pdf.h2("2. Antecedentes y normativa")
     for li in ["NCh 432:2025 - Diseño estructural - Cargas de viento.",
                "NCh3171 - Disposiciones generales y combinaciones de carga (categoría de ocupación).",
-               "Presión de velocidad según Ec. (2) y presión de diseño C&R según Ec. (19) de NCh 432:2025."]:
+               ("Presión de velocidad según Ec. (2) y presión de diseño C&R según Ec. (19) de NCh 432:2025."
+                if modo == FACHADA else
+                "Presión de velocidad según Ec. (2); presión de diseño en parapetos según 9.6, Ec. (22) y Figura 45."),
+               "Presión neta mínima de diseño para C&R: 0,25 kN/m² (9.2.2)."]:
         pdf.p("-  " + li)
 
     # --- 3. Datos de entrada ---
@@ -746,10 +1067,26 @@ def generar_pdf_viento():
         ["Velocidad básica V", f"{_n(V, 1)} m/s"],
         ["Altura media del edificio h", f"{_n(H_edif, 2)} m"],
         ["Inclinación de techo theta", f"{theta}°"],
-        ["Largo del elemento L", f"{_n(l_elem, 2)} m"],
-        ["Ancho tributario ingresado", f"{_n(w_in, 2)} m"],
-        ["Ancho tributario de cálculo max(b, L/3)", f"{_n(w_trib, 2)} m"],
-        ["Área efectiva A", f"{_n(area_ef, 2)} m²"],
+    ]
+    if modo == FACHADA:
+        filas += [
+            ["Largo del elemento L", f"{_n(l_elem, 2)} m"],
+            ["Ancho tributario ingresado", f"{_n(w_in, 2)} m"],
+            ["Ancho tributario de cálculo max(b, L/3)", f"{_n(w_trib, 2)} m"],
+            ["Área efectiva A", f"{_n(area_ef, 2)} m²"],
+        ]
+    else:
+        filas += [
+            ["Elemento", "Parapeto" if modo == PARAPETO else f"Baranda ({ubic_baranda.lower()})"],
+            ["Altura del elemento", f"{_n(h_elem, 2)} m"],
+            ["Cota de la base del elemento", f"{_n(z_base_elem, 2)} m"],
+            ["Cota del punto más alto z", f"{_n(z_top, 2)} m"],
+            ["Separación entre montantes s", f"{_n(s_apoyo, 2)} m"],
+            ["Área efectiva A = L·max(b, L/3)", f"{_n(A_par, 2)} m²"],
+            ["Menor dimensión horizontal del edificio B", f"{_n(B_min, 1)} m"],
+            ["Ancho de zona de esquina a", f"{_n(res_par['a_esq'], 2)} m"],
+        ]
+    filas += [
         ["Categoría de exposición", f"{cat_exp} ({exp_info[cat_exp][2]})"],
         ["Categoría de riesgo / factor I", f"{cat_imp} / {_n(factor_i, 2)}"],
         ["Clasificación del cerramiento", cerramiento_opcion],
@@ -767,8 +1104,12 @@ def generar_pdf_viento():
         ["Factor de elevación del suelo Ke (5.7)", _n(Ke_val, 3)],
         ["Factor de direccionalidad Kd", _n(Kd_val, 2)],
         ["Factor de importancia I", _n(factor_i, 2)],
-        ["Coef. de presión interna GCpi", f"± {_n(gc_pi_val, 2)}"],
+        ["Coef. de presión interna GCpi", f"± {_n(gc_pi_val, 2)}"] if modo == FACHADA else
+        ["Coef. de presión interna del parapeto GCpi", f"± {_n(gcpi_par, 2)}" if es_hueco else "Se anula (una hoja)"],
     ]
+    if modo != FACHADA:
+        filas_f.insert(5, ["Coef. de exposición Kz (z = tope del elemento)", _n(res_par["kz_top"], 3)])
+        filas_f.insert(6, ["Factor topográfico Kzt (z = tope del elemento)", _n(res_par["kzt_top"], 3)])
     pdf.tabla(["Factor", "Valor"], filas_f, [120, 60])
     if metodo == "Calculado":
         pdf.p(f"Kzt calculado para {tipo_relieve}, Exposición {cat_exp}, con Hc = {_n(Hc, 1)} m, Lh = {_n(Lhc, 1)} m "
@@ -803,50 +1144,134 @@ def generar_pdf_viento():
     pdf.eq("Ke = e^(-0,000119 · ze)   ;   Ke = 1,00 permitido para toda elevación")
     pdf.p("Presión de velocidad, Ec. (2):")
     pdf.eq("qz = 0,613 · I · Kz · Kzt · Ke · V²   [N/m²]")
-    pdf.p("Presión de diseño para C&R, con GCpi en el signo más desfavorable y qi = qh:")
-    pdf.eq("p = q · Kd · (GCp) - qi · Kd · (GCpi)   ;   |p| >= 480 N/m²")
-    pdf.p(f"GCp de muros según la {fig_muro} de NCh 432:2025, interpolado linealmente en log10(A) entre "
-          f"A = 0,9 m² y A = 46,5 m². " + ("La sobrepresión se evalúa con qz y la succión con qh (Figura 40, Nota 4). "
-          if edificio_alto else "Todas las presiones se evalúan con qh (edificio de baja altura). ") +
-          "Conversión de unidades: 1 N/m² = 0,10197 kgf/m².")
-    if aviso_techo:
-        pdf.nota(aviso_techo)
+    if modo == FACHADA:
+        pdf.p("Presión de diseño para C&R, con GCpi en el signo más desfavorable y qi = qh:")
+        pdf.eq("p = q · Kd · (GCp) - qi · Kd · (GCpi)   ;   |p| >= 250 N/m² (9.2.2)")
+        pdf.p(f"GCp de muros según la {fig_muro} de NCh 432:2025, interpolado linealmente en log10(A) entre "
+              f"A = 0,9 m² y A = 46,5 m². " + ("La sobrepresión se evalúa con qz y la succión con qh (Figura 40, Nota 4). "
+              if edificio_alto else "Todas las presiones se evalúan con qh (edificio de baja altura). ") +
+              "Conversión de unidades: 1 N/m² = 0,10197 kgf/m².")
+        if aviso_techo:
+            pdf.nota(aviso_techo)
+    else:
+        pdf.p("Presión de diseño en parapetos, Ec. (22), con qp evaluada en el punto más alto del elemento:")
+        pdf.eq("p = qp · Kd · [ (GCp) - (GCpi) ]")
+        pdf.p("Presión neta sobre un elemento de una hoja (las presiones de ambas caras actúan en el mismo sentido "
+              "y GCpi se anula):")
+        pdf.eq("p neta = qp · Kd · [ (GCp)cara 1 - (GCp)cara 2 ]   ;   p neta >= 250 N/m² (9.2.2)")
+        pdf.p("Cargas sobre el elemento, con la presión neta uniforme en la altura h del elemento y el montante "
+              "en voladizo desde su base:")
+        pdf.eq("w = p neta · h   ;   F = p neta · h · s   ;   M = F · h / 2")
+        if en_techo:
+            pdf.p("Casos de carga de la Figura 45: Caso A (parapeto de barlovento): cara exterior con presión positiva "
+                  "de muro, zonas 4 o 5, y cara interior con succión de borde o esquina de techo, zonas 2 o 3. "
+                  "Caso B (parapeto de sotavento): cara interior con presión positiva de muro y cara exterior con "
+                  "succión de muro, zonas 4 o 5.")
+        else:
+            pdf.nota("Criterio adoptado para barandas de balcón: se asimilan a un parapeto (9.6) y se aplica el caso B "
+                     "de la Figura 45, con presión positiva de muro en una cara y succión de muro en la cara opuesta, "
+                     "zonas 4 o 5, actuando en ambos sentidos. Aplicable a barandas de paño lleno (vidrio, plancha); "
+                     "para barandas abiertas el criterio resulta conservador.")
+        txt_techo = ""
+        if en_techo:
+            txt_techo = (f"; GCp de borde y esquina de techo según la {fig_techo}" if g2_man is None else
+                         f"; GCp de techo ingresados por el usuario (zona 2: {_n(g2_man, 2)}; zona 3: {_n(g3_man, 2)}), "
+                         "según las Figuras 27 a 32 para θ > 7°")
+        pdf.p(f"GCp de muros según la {fig_muro}{txt_techo}, interpolados linealmente en log10(A) entre "
+              f"A = 0,9 m² y A = 46,5 m²." + (" GCp de muros reducidos en 10 % (Figura 24, Nota 5)." if reduccion_muros else "") +
+              " Conversión de unidades: 1 N/m² = 0,10197 kgf/m².")
 
     # --- 6. qh ---
     pdf.h2("6. Presión de velocidad a la altura media del techo")
     pdf.eq(f"qh = 0,613 · {_n(factor_i, 2)} · {_n(kz, 3)} · {_n(Kzt_val, 3)} · {_n(Ke_val, 3)} · {_n(V, 1)}²")
     pdf.eq(f"qh = {_n(qh / 0.10197, 1)} N/m² = {_n(qh, 2)} kgf/m²")
+    if modo != FACHADA:
+        pdf.p(f"Presión de velocidad en el punto más alto del elemento, z = {_n(z_top, 2)} m:")
+        pdf.eq(f"qp = 0,613 · {_n(factor_i, 2)} · {_n(res_par['kz_top'], 3)} · {_n(res_par['kzt_top'], 3)} · "
+               f"{_n(Ke_val, 3)} · {_n(V, 1)}²")
+        pdf.eq(f"qp = {_n(res_par['qp'] / 0.10197, 1)} N/m² = {_n(res_par['qp'], 2)} kgf/m²")
 
-    # --- 7. Presiones netas ---
-    pdf.h2("7. Presiones netas de diseño por zona", reserva=75)
-    filas_p = [[_txt(z), _n(g, 3), f"± {_n(gc_pi_val, 2)}", _n(p, 2)]
-               for z, g, p in zip(zonas, gcp_vals, p_netas)]
-    pdf.tabla(["Zona de análisis", "GCp", "GCpi", "p [kgf/m²]"], filas_p, [84, 30, 30, 36])
-    pdf.p("Valores positivos: sobrepresión hacia la superficie. Valores negativos: succión hacia el exterior. "
-          "La succión de Zonas 4 y 5 cubre los muros de sotavento y laterales y se evalúa con qh, constante en "
-          "toda la altura. Se aplica la presión mínima de 480 N/m² (48,9 kgf/m²).", size=8.5, style="I")
+    if modo == FACHADA:
+        # --- 7. Presiones netas ---
+        pdf.h2("7. Presiones netas de diseño por zona", reserva=75)
+        filas_p = [[_txt(z), _n(g, 3), f"± {_n(gc_pi_val, 2)}", _n(p, 2)]
+                   for z, g, p in zip(zonas, gcp_vals, p_netas)]
+        pdf.tabla(["Zona de análisis", "GCp", "GCpi", "p [kgf/m²]"], filas_p, [84, 30, 30, 36])
+        pdf.p("Valores positivos: sobrepresión hacia la superficie. Valores negativos: succión hacia el exterior. "
+              "La succión de Zonas 4 y 5 cubre los muros de sotavento y laterales y se evalúa con qh, constante en "
+              "toda la altura. Se aplica la presión neta mínima de 250 N/m² (25,5 kgf/m², 9.2.2).", size=8.5, style="I")
 
-    # --- 8. Gráficos ---
-    pdf.h2("8. Gráficos de verificación")
-    pdf.figura(_fig_png(fig), 165, f"Figura 1 - Coeficientes GCp de muros en función del área efectiva (A = {_n(area_ef, 2)} m² marcado)")
-    pdf.figura(_fig_png(fig_alt), 175, f"Figura 2 - Perfil de presiones netas de diseño en altura, V = {_n(V, 1)} m/s")
+        # --- 8. Gráficos ---
+        pdf.h2("8. Gráficos de verificación")
+        pdf.figura(_fig_png(fig), 165, f"Figura 1 - Coeficientes GCp de muros en función del área efectiva (A = {_n(area_ef, 2)} m² marcado)")
+        pdf.figura(_fig_png(fig_alt), 175, f"Figura 2 - Perfil de presiones netas de diseño en altura, V = {_n(V, 1)} m/s")
 
-    # --- 9. Esquemas ---
-    esquemas = [(f, t) for f, t in [("F8.png", "Identificación de zonas"), ("F12.png", "Esquema isométrico")]
-                if os.path.exists(f)]
-    if esquemas:
-        pdf.h2("9. Esquemas de zonificación")
-        for i, (f, t) in enumerate(esquemas, start=3):
-            pdf.figura(f, 150, f"Figura {i} - {t}")
+        # --- 9. Esquemas ---
+        esquemas = [(leer_imagen(f), t) for f, t in [("F8.png", "Identificación de zonas"), ("F12.png", "Esquema isométrico")]
+                    if leer_imagen(f)]
+        if esquemas:
+            pdf.h2("9. Esquemas de zonificación")
+            for i, (b, t) in enumerate(esquemas, start=3):
+                pdf.figura(io.BytesIO(b), 150, f"Figura {i} - {t}")
 
-    # --- Conclusiones ---
-    pdf.h2(("10." if esquemas else "9.") + " Conclusiones")
-    i_min = int(np.argmin(p_netas)); i_max = int(np.argmax(p_netas))
-    pdf.p(f"-  Presión de velocidad a la altura media del techo: qh = {_n(qh, 2)} kgf/m².")
-    pdf.p(f"-  Succión máxima de diseño: {_n(p_netas[i_min], 2)} kgf/m² en {_txt(zonas[i_min])}.")
-    pdf.p(f"-  Empuje máximo de diseño: {_n(p_netas[i_max], 2)} kgf/m² en {_txt(zonas[i_max])}.")
-    pdf.p("-  Los valores corresponden a la configuración analizada. Cualquier variación de geometría, "
-          "exposición, categoría o cerramiento requiere una nueva evaluación.")
+        # --- Conclusiones ---
+        pdf.h2(("10." if esquemas else "9.") + " Conclusiones")
+        i_min = int(np.argmin(p_netas)); i_max = int(np.argmax(p_netas))
+        pdf.p(f"-  Presión de velocidad a la altura media del techo: qh = {_n(qh, 2)} kgf/m².")
+        pdf.p(f"-  Succión máxima de diseño: {_n(p_netas[i_min], 2)} kgf/m² en {_txt(zonas[i_min])}.")
+        pdf.p(f"-  Empuje máximo de diseño: {_n(p_netas[i_max], 2)} kgf/m² en {_txt(zonas[i_max])}.")
+        pdf.p("-  Los valores corresponden a la configuración analizada. Cualquier variación de geometría, "
+              "exposición, categoría o cerramiento requiere una nueva evaluación.")
+    else:
+        # --- 7. Resultados parapeto / baranda ---
+        pdf.h2("7. Presiones de diseño sobre " + ("el parapeto" if modo == PARAPETO else "la baranda"), reserva=75)
+        casos = res_par["casos"]
+        pdf.tabla(["Caso", "Zona", "GCp cara 1", "GCp cara 2", "p cara 1", "p cara 2", "p neta"],
+                  [[c["caso"], _txt(c["zona"]), _n(c["g1"], 3), _n(c["g2"], 3), _n(c["p1"], 2), _n(c["p2"], 2),
+                    _n(c["pn_d"], 2)] for c in casos],
+                  [12, 56, 22, 22, 22, 22, 24], ["C", "L", "R", "R", "R", "R", "R"])
+        pdf.p("Presiones en kgf/m². Cara 1: cara con presión positiva (hacia la superficie); cara 2: cara opuesta, con "
+              "succión (alejándose de la superficie). Ambas actúan en el mismo sentido y se suman en la presión neta. "
+              "Caso A: presión neta hacia el techo. Caso B: presión neta hacia el exterior" +
+              (" (en balcones, en ambos sentidos)." if not en_techo else "."), size=8.5, style="I")
+        pdf.p(f"Cargas sobre el elemento (h = {_n(h_elem, 2)} m; s = {_n(s_apoyo, 2)} m):")
+        pdf.tabla(["Caso", "Zona", "p neta [kgf/m²]", "w [kgf/m]", "F [kgf]", "M [kgf·m]"],
+                  [[c["caso"], _txt(c["zona"]), _n(c["pn_d"], 2), _n(c["w"], 1), _n(c["F"], 1), _n(c["M"], 1)]
+                   for c in casos],
+                  [12, 56, 28, 28, 28, 28], ["C", "L", "R", "R", "R", "R"])
+        if es_hueco:
+            pdf.p(f"Parapeto hueco: presión sobre cada revestimiento con GCpi = ±{_n(gcpi_par, 2)} (Tabla 7):")
+            pdf.tabla(["Caso", "Zona", "Revestimiento cara 1 [kgf/m²]", "Revestimiento cara 2 [kgf/m²]"],
+                      [[c["caso"], _txt(c["zona"]), _n(c["p1i"], 2), _n(c["p2i"], 2)] for c in casos],
+                      [12, 56, 56, 56], ["C", "L", "R", "R"])
+        if en_techo:
+            pdf.nota("Figura 26, Nota 5 / Figura 40, Nota 7: con parapeto de 0,9 m o más en todo el perímetro, la zona 3 "
+                     "del techo puede tratarse como zona 2 en el diseño del techo. En el diseño del propio parapeto se "
+                     "conservan los coeficientes de borde y esquina sin reducir.")
+
+        # --- 8. Gráficos ---
+        pdf.h2("8. Esquema de cargas y gráficos de verificación", reserva=120)
+        pdf.figura(_fig_png(fig_par_esq), 175 if en_techo else 130,
+                   "Figura 1 - Presiones sobre las caras del elemento y presión neta (casos de la Figura 45)")
+        pdf.figura(_fig_png(fig_par_curv), 160,
+                   f"Figura 2 - Coeficiente neto en función del área efectiva (A = {_n(A_par, 2)} m² marcado)")
+
+        # --- 9. Conclusiones ---
+        gob = res_par["gob"]
+        pdf.h2("9. Conclusiones")
+        pdf.p(f"-  Presión de velocidad en el punto más alto del elemento (z = {_n(z_top, 2)} m): "
+              f"qp = {_n(res_par['qp'], 2)} kgf/m².")
+        pdf.p(f"-  Presión neta de diseño: {_n(gob['pn_d'], 2)} kgf/m² ({_n(gob['pn_d'] * KGF_A_KN, 3)} kN/m²), "
+              f"caso {gob['caso']}, {_txt(gob['zona'].lower())}, {gob['sentido']}.")
+        pdf.p(f"-  Carga lineal sobre el elemento: w = {_n(gob['w'], 1)} kgf/m ({_n(gob['w'] * KGF_A_KN, 2)} kN/m).")
+        pdf.p(f"-  Por montante (s = {_n(s_apoyo, 2)} m): F = {_n(gob['F'], 1)} kgf ({_n(gob['F'] * KGF_A_KN, 2)} kN) y "
+              f"M = {_n(gob['M'], 1)} kgf·m ({_n(gob['M'] * KGF_A_KN, 2)} kN·m) en la base.")
+        tip = [c for c in res_par["casos"] if c["zona"].startswith("Típica")]
+        tip_gob = max(tip, key=lambda c: c["pn_d"])
+        pdf.p(f"-  Fuera de la zona de esquina (a = {_n(res_par['a_esq'], 2)} m desde cada esquina) gobierna "
+              f"{_n(tip_gob['pn_d'], 2)} kgf/m² (caso {tip_gob['caso']}).")
+        pdf.p("-  Los valores corresponden a la configuración analizada. Cualquier variación de geometría, "
+              "exposición, categoría o ubicación del elemento requiere una nueva evaluación.")
 
     # --- Control de calidad y firma ---
     pdf.ln(2)
@@ -875,7 +1300,7 @@ st.subheader("📄 Memoria de Cálculo")
 try:
     _pdf_bytes = generar_pdf_viento()
     st.download_button("⬇️ Descargar memoria de cálculo (PDF)", data=_pdf_bytes,
-                       file_name=f"Memoria_Viento_{mem_codigo}_Rev{mem_rev}.pdf",
+                       file_name=f"Memoria_Viento_{ {FACHADA: 'Fachadas', PARAPETO: 'Parapetos', BARANDA: 'Barandas'}[modo] }_{mem_codigo}_Rev{mem_rev}.pdf",
                        mime="application/pdf", type="primary")
     st.caption("Incluye datos de entrada, factores, formulación, presiones por zona, gráficos y esquemas. "
                "Complete los datos del documento en el panel lateral (📄 Datos de la Memoria Técnica).")
